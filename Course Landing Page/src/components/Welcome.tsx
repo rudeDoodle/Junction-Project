@@ -21,13 +21,12 @@ export default function Welcome({ onGetStarted }: WelcomeProps) {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="mb-12"
         >
-          <div className="w-20 h-20 mx-auto bg-gradient-to-br from-teal-400 to-cyan-500 clip-hexagon mb-6 flex items-center justify-center shadow-lg shadow-teal-200">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <path d="M20 8L24 18H16L20 8Z" fill="white" />
-              <path d="M12 20L8 30H16L12 20Z" fill="white" opacity="0.8" />
-              <path d="M28 20L32 30H24L28 20Z" fill="white" opacity="0.8" />
-              <path d="M20 24L22 30H18L20 24Z" fill="white" opacity="0.6" />
-            </svg>
+          <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
+            <img 
+              src="/news.png" 
+              alt="Vatra Logo" 
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
           </div>
         </motion.div>
 

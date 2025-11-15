@@ -208,6 +208,8 @@ const initialData = {
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'welcome' | 'onboarding' | 'chatMode' | 'chat' | 'loading' | 'main' | 'lesson'>('welcome');
   const [activeTab, setActiveTab] = useState<'home' | 'learn' | 'news' | 'finance' | 'profile'>('home');
+  const [cards, setCards] = useState<Array<{id: string; name: string; balance: number}>>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | 'all'>('all');
   
   // Initialize streak from localStorage and check if it should be reset
   const checkAndResetStreak = () => {
@@ -425,6 +427,70 @@ export default function App() {
     setTimeout(() => setNotification(null), 5000);
   };
 
+  const getBalanceForRole = (role: string): number => {
+    const balances: Record<string, number> = {
+      student: 850,
+      teen: 300,
+      adult: 1460
+    };
+    return balances[role] || 850;
+  };
+
+  const handleAddCard = (cardType: string) => {
+    const balance = getBalanceForRole(userData.role);
+    const newCard = {
+      id: Date.now().toString(),
+      name: cardType,
+      balance: balance
+    };
+    setCards(prev => [...prev, newCard]);
+    setSelectedCardId(newCard.id);
+    setNotification({ message: `${cardType} card connected successfully!`, type: 'success' });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleRemoveCard = (cardId: string) => {
+    setCards(prev => prev.filter(card => card.id !== cardId));
+    if (selectedCardId === cardId) {
+      setSelectedCardId(cards.length > 1 ? cards[0].id : 'all');
+    }
+    setNotification({ message: 'Card removed successfully', type: 'success' });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleAddCashPayment = (payment: { amount: number; category: string; merchant: string; date: string }) => {
+    // Add to transactions
+    const newTransaction = {
+      id: Date.now(),
+      date: payment.date,
+      merchant: payment.merchant,
+      amount: payment.amount,
+      category: payment.category
+    };
+    
+    setAppData(prev => {
+      const newTransactions = [newTransaction, ...prev.transactions];
+      
+      // Update category spending
+      const newFinances = prev.finances.map(finance => {
+        if (finance.category === payment.category) {
+          const newMonthly = finance.monthly + payment.amount;
+          return { ...finance, monthly: newMonthly };
+        }
+        return finance;
+      });
+      
+      return {
+        ...prev,
+        transactions: newTransactions,
+        finances: newFinances
+      };
+    });
+    
+    setNotification({ message: `Cash payment of €${payment.amount.toFixed(2)} added successfully`, type: 'success' });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-[430px] h-[932px] bg-white rounded-[40px] shadow-2xl overflow-hidden relative">
@@ -501,6 +567,12 @@ export default function App() {
                     userData={userData}
                     onCrazyPayment={handleCrazyPayment}
                     crazyPaymentCount={crazyPaymentCount}
+                    cards={cards}
+                    selectedCardId={selectedCardId}
+                    onSelectCard={setSelectedCardId}
+                    onAddCard={handleAddCard}
+                    onRemoveCard={handleRemoveCard}
+                    onAddCashPayment={handleAddCashPayment}
                   />
                 )}
                 {activeTab === 'profile' && (
