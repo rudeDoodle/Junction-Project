@@ -236,6 +236,10 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
         timestamp: new Date()
       };
       setMessages([...messages, feedbackMessage]);
+      
+      // Play TTS for validation feedback
+      playTextToSpeech(feedbackMessage.text);
+      
       setInput('');
       setOtherInput('');
       setShowOtherInput(false);
@@ -273,6 +277,9 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
         };
         setMessages([...newMessages, nextMessage]);
         setCurrentQuestionIndex(currentQuestionIndex + 1);
+        
+        // Play TTS for the next question
+        playTextToSpeech(nextQuestion.text);
       } else {
         const completionMessage = {
           id: newMessages.length + 1,
@@ -281,6 +288,10 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
           timestamp: new Date()
         };
         setMessages([...newMessages, completionMessage]);
+        
+        // Play TTS for the completion message
+        playTextToSpeech(completionMessage.text);
+        
         setTimeout(onComplete, 2000);
       }
     }, 300);
