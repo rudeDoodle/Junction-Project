@@ -13,6 +13,7 @@ import Profile from './components/Profile';
 import LessonView from './components/LessonView';
 import LoadingAnimation from './components/LoadingAnimation';
 import NotificationToast from './components/NotificationToast';
+import { generateLesson } from './services/gemini';
 
 // Sample data structure
 const initialData = {
@@ -159,6 +160,8 @@ export default function App() {
   const [notification, setNotification] = useState<{ message: string; type: 'warning' | 'success' } | null>(null);
   const [crazyPaymentCount, setCrazyPaymentCount] = useState(0);
   const [chatMode, setChatMode] = useState<'type' | 'voice' | 'mcq' | null>(null);
+  const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(null);
+  const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
 
   const updateUserXP = (xpGain: number) => {
     setUserData(prev => {
@@ -202,6 +205,37 @@ export default function App() {
     setCurrentScreen('lesson');
   };
 
+  const handleStartAILesson = async (topic: string) => {
+    setIsGeneratingLesson(true);
+    setCurrentScreen('loading');
+    
+    try {
+      const lessonData = await generateLesson(
+        topic,
+        userData.country || 'Finland',
+        userData.role || 'student',
+        userData
+      );
+      
+      setCurrentLesson({
+        questions: lessonData.questions,
+        facts: lessonData.facts
+      });
+      
+      setCurrentScreen('lesson');
+    } catch (error) {
+      console.error('Failed to generate lesson:', error);
+      setNotification({ 
+        message: 'Failed to generate lesson. Please try again.', 
+        type: 'warning' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+      setCurrentScreen('main');
+    } finally {
+      setIsGeneratingLesson(false);
+    }
+  };
+
   const handleLessonComplete = (earnedXP: number) => {
     updateUserXP(earnedXP);
     updateStreak();
@@ -210,7 +244,7 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleCrazyPayment = (amount: number, category: string) => {
+  const handleCrazyPayment = (_amount: number, _category: string) => {
     const newCount = crazyPaymentCount + 1;
     setCrazyPaymentCount(newCount);
     
@@ -281,7 +315,10 @@ export default function App() {
                   />
                 )}
                 {activeTab === 'learn' && (
-                  <Learn userData={userData} />
+                  <Learn 
+                    userData={userData}
+                    onStartLesson={handleStartAILesson}
+                  />
                 )}
                 {activeTab === 'news' && (
                   <News news={appData.news} />
@@ -308,11 +345,11 @@ export default function App() {
             </motion.div>
           )}
           
-          {currentScreen === 'lesson' && (
+          {currentScreen === 'lesson' && currentLesson && (
             <LessonView
               key="lesson"
-              questions={appData.questions}
-              facts={appData.facts}
+              questions={currentLesson.questions}
+              facts={currentLesson.facts}
               onComplete={handleLessonComplete}
               onBack={() => setCurrentScreen('main')}
             />

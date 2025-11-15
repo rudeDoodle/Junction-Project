@@ -27,14 +27,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handlePersonalizationChoice = (choice: 'yes' | 'skip') => {
-    // Debounce: prevent double-tap race condition
     if (isProcessing) return;
     setIsProcessing(true);
 
-    // Log onboarding event for QA
     console.log('[Onboarding] Personalization choice:', choice === 'yes' ? 'true' : 'false');
 
-    // Save state and proceed
     const onboardingData = {
       country: selectedCountry,
       role: selectedRole.toLowerCase(),
@@ -44,7 +41,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
     console.log('[Onboarding] Complete data:', onboardingData);
 
-    // Small delay for UX smoothness
     setTimeout(() => {
       onComplete(onboardingData);
     }, 100);
@@ -122,7 +118,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <h2 className="text-gray-900 mb-3 text-left">Let AI personalize your journey?</h2>
               <p className="text-gray-600 mb-2 text-left">Optional but recommended</p>
               <p className="text-gray-500 text-sm mb-8 text-left">
-                Vatra will ask you a few questions to create lessons that match your experience and goals
+                Vatra will ask you a few quick questions to create lessons that match your needs
               </p>
               
               <div className="space-y-3">

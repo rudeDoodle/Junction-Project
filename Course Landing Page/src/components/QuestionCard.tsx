@@ -11,12 +11,15 @@ interface QuestionCardProps {
 export default function QuestionCard({ question, onAnswer }: QuestionCardProps) {
   const [sliderValue, setSliderValue] = useState(50);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
+  const [selectedTrueFalse, setSelectedTrueFalse] = useState<boolean | null>(null);
 
   const handleSubmit = () => {
     if (question.type === 'slider') {
       onAnswer(sliderValue);
     } else if (question.type === 'scam' && selectedChoice !== null) {
       onAnswer(selectedChoice);
+    } else if (question.type === 'trueFalse' && selectedTrueFalse !== null) {
+      onAnswer(selectedTrueFalse);
     }
   };
 
@@ -111,6 +114,59 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
         <Button
           onClick={handleSubmit}
           disabled={selectedChoice === null}
+          className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Submit Answer
+        </Button>
+      </div>
+    );
+  }
+
+  if (question.type === 'trueFalse') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-slate-900 mb-4">{question.prompt}</h2>
+          <p className="text-slate-600">Choose True or False</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <motion.button
+            onClick={() => setSelectedTrueFalse(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`p-6 rounded-xl border-2 text-center transition-all ${
+              selectedTrueFalse === true
+                ? 'border-green-500 bg-green-50'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <div className="text-4xl mb-2">✓</div>
+            <span className={`font-semibold ${selectedTrueFalse === true ? 'text-green-700' : 'text-slate-700'}`}>
+              True
+            </span>
+          </motion.button>
+
+          <motion.button
+            onClick={() => setSelectedTrueFalse(false)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`p-6 rounded-xl border-2 text-center transition-all ${
+              selectedTrueFalse === false
+                ? 'border-red-500 bg-red-50'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <div className="text-4xl mb-2">✗</div>
+            <span className={`font-semibold ${selectedTrueFalse === false ? 'text-red-700' : 'text-slate-700'}`}>
+              False
+            </span>
+          </motion.button>
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={selectedTrueFalse === null}
           className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Submit Answer

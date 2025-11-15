@@ -15,38 +15,24 @@ interface ChatProps {
 const chatQuestions = [
   { 
     id: 1, 
-    text: "How confident are you with managing your money?", 
-    type: "confidence",
-    field: "confidence",
-    mcqOptions: ["Very confident", "Somewhat confident", "Not very confident", "Just starting out"]
+    text: "What's your gender?", 
+    type: "personal",
+    field: "gender",
+    mcqOptions: ["Male", "Female", "Non-binary", "Prefer not to say"]
   },
   { 
     id: 2, 
-    text: "Have you ever encountered a scam or suspicious offer?", 
-    type: "risk",
-    field: "scamExperience",
-    mcqOptions: ["Yes, multiple times", "Once or twice", "No, never", "Not sure"]
+    text: "Do you have any income?", 
+    type: "financial",
+    field: "hasIncome",
+    mcqOptions: ["Yes, part-time job", "Yes, allowance", "No income yet", "Occasional earnings"]
   },
   { 
     id: 3, 
-    text: "How comfortable are you with digital banking and payment apps?", 
-    type: "confidence",
-    field: "digitalComfort",
-    mcqOptions: ["Very comfortable", "Somewhat comfortable", "Not very comfortable", "Never used them"]
-  },
-  { 
-    id: 4, 
-    text: "What best describes your money habits?", 
-    type: "money",
-    field: "moneyHabits",
-    mcqOptions: ["I save regularly", "I spend as I earn", "I often overspend", "I'm trying to improve"]
-  },
-  { 
-    id: 5, 
-    text: "Have you learned about personal finance before?", 
-    type: "learning",
-    field: "priorLearning",
-    mcqOptions: ["Yes, quite a bit", "A little", "No, this is new", "Want to learn more"]
+    text: "Do you save money regularly?", 
+    type: "financial",
+    field: "savingsHabit",
+    mcqOptions: ["Yes, regularly", "Sometimes", "Rarely", "Never"]
   }
 ];
 

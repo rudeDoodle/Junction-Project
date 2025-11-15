@@ -33,6 +33,9 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
     } else if (currentQuestion.type === 'scam') {
       isCorrect = answer === currentQuestion.correct;
       xpEarned = isCorrect ? 25 : 5;
+    } else if (currentQuestion.type === 'trueFalse') {
+      isCorrect = answer === currentQuestion.correct;
+      xpEarned = isCorrect ? 25 : 5;
     }
 
     setCurrentAnswer({ answer, isCorrect, xpEarned });
