@@ -23,7 +23,7 @@ const initialData = {
     country: "Finland",
     role: "student",
     streak: 4,
-    xp: 420,
+    xp: 0,
     avatar: "img3",
     age: null,
     gender: null,
@@ -34,12 +34,12 @@ const initialData = {
     { id: 3, name: "Jon", xp: 980, avatar: "img2" },
     { id: 4, name: "Saara", xp: 850, avatar: "img4" },
     { id: 5, name: "Mikko", xp: 720, avatar: "img5" },
-    { id: 1, name: "Demo User", xp: 420, avatar: "img3" }
+    { id: 1, name: "Demo User", xp: 0, avatar: "img3" }
   ],
   friendsLeaderboard: [
     { id: 6, name: "Emma", xp: 650, avatar: "img1" },
     { id: 7, name: "Lauri", xp: 580, avatar: "img2" },
-    { id: 1, name: "Demo User", xp: 420, avatar: "img3" },
+    { id: 1, name: "Demo User", xp: 0, avatar: "img3" },
     { id: 8, name: "Sofia", xp: 390, avatar: "img4" },
     { id: 9, name: "Ville", xp: 320, avatar: "img5" }
   ],
@@ -238,7 +238,8 @@ export default function App() {
   };
   
   const initialStreak = checkAndResetStreak();
-  const [userData, setUserData] = useState({...initialData.user, streak: initialStreak});
+  const initialXP = parseInt(localStorage.getItem('userXP') || '0');
+  const [userData, setUserData] = useState({...initialData.user, streak: initialStreak, xp: initialXP});
   const [leaderboard, setLeaderboard] = useState(initialData.leaderboard);
   const [friendsLeaderboard, setFriendsLeaderboard] = useState(initialData.friendsLeaderboard);
   const [appData, setAppData] = useState(initialData);
@@ -253,7 +254,14 @@ export default function App() {
   const updateUserXP = (xpGain: number) => {
     setUserData(prev => {
       const newXP = prev.xp + xpGain;
+      localStorage.setItem('userXP', newXP.toString());
       setLeaderboard(current => {
+        const updated = current.map(user => 
+          user.id === prev.id ? { ...user, xp: newXP } : user
+        );
+        return updated.sort((a, b) => b.xp - a.xp);
+      });
+      setFriendsLeaderboard(current => {
         const updated = current.map(user => 
           user.id === prev.id ? { ...user, xp: newXP } : user
         );
@@ -330,10 +338,11 @@ export default function App() {
 
   const handleStartLesson = () => {
     // Use sample lesson data when starting from Home
-    setCurrentLesson({
+    const lesson = {
       questions: initialData.questions,
       facts: initialData.facts
-    });
+    };
+    setCurrentLesson(lesson);
     setCurrentScreen('lesson');
   };
 

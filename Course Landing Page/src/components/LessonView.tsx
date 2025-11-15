@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, XCircle, Sparkles, Share2, Volume2 } from 'lucide-react';
+import { X, CheckCircle, XCircle, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { Button } from './ui/button';
 import QuestionCard from './QuestionCard';
 
@@ -23,10 +23,18 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   const [showSummary, setShowSummary] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [autoRead, setAutoRead] = useState(false);
   
   const correctSoundRef = useRef<HTMLAudioElement>(null);
   const wrongSoundRef = useRef<HTMLAudioElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-read question when it changes if autoRead is enabled
+  useEffect(() => {
+    if (autoRead && !showFeedback && currentQuestion) {
+      playTextToSpeech(currentQuestion.prompt);
+    }
+  }, [currentQuestionIndex, autoRead, showFeedback]);
 
   // Error handling for empty or invalid data
   if (!questions || questions.length === 0) {
@@ -47,7 +55,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
 
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const totalXP = answers.reduce((sum, a) => sum + a.xp, 0);
+  const totalXP = answers.reduce((sum, a) => sum + (a.xpEarned || 0), 0);
 
   const handleAnswer = (answer: any) => {
     let isCorrect = false;
@@ -63,6 +71,24 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
     } else if (currentQuestion.type === 'trueFalse') {
       isCorrect = answer === currentQuestion.correct;
       xpEarned = isCorrect ? 25 : 5;
+    } else if (currentQuestion.type === 'multiSelect') {
+      // Calculate partial credit for multi-select
+      const correctAnswers = currentQuestion.correct || [];
+      const selectedAnswers = Array.isArray(answer) ? answer : [answer];
+      
+      // Count correct selections and incorrect selections
+      const correctSelections = selectedAnswers.filter((a: number) => correctAnswers.includes(a)).length;
+      const incorrectSelections = selectedAnswers.filter((a: number) => !correctAnswers.includes(a)).length;
+      
+      // Full credit if all correct and no incorrect
+      if (correctSelections === correctAnswers.length && incorrectSelections === 0) {
+        isCorrect = true;
+        xpEarned = 25;
+      } else {
+        // Partial credit based on percentage correct
+        const percentCorrect = correctSelections / correctAnswers.length;
+        xpEarned = Math.max(5, Math.floor(25 * percentCorrect));
+      }
     }
 
     setCurrentAnswer({ answer, isCorrect, xpEarned });
@@ -92,12 +118,14 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   };
 
   const handleComplete = () => {
-    const finalXP = answers.reduce((sum, a) => sum + a.xp, 0) + (currentAnswer?.xpEarned || 0);
-    const allAnswers = [...answers, currentAnswer];
+    const allAnswers = [...answers, currentAnswer].filter(a => a !== null);
+    const finalXP = allAnswers.reduce((sum, a) => sum + (a.xpEarned || 0), 0);
     
     // Create detailed history for each question
     const history = allAnswers.map((ans, idx) => {
       const q = questions[idx];
+      if (!q) return null;
+      
       let userAnswerText = '';
       let correctAnswerText = '';
       
@@ -110,6 +138,11 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
       } else if (q.type === 'trueFalse') {
         userAnswerText = ans.answer ? 'True' : 'False';
         correctAnswerText = q.correct ? 'True' : 'False';
+      } else if (q.type === 'multiSelect') {
+        const selected = Array.isArray(ans.answer) ? ans.answer : [ans.answer];
+        userAnswerText = selected.map((i: number) => q.choices[i]).join(', ');
+        const correct = Array.isArray(q.correct) ? q.correct : [q.correct];
+        correctAnswerText = correct.map((i: number) => q.choices[i]).join(', ');
       }
       
       return {
@@ -120,7 +153,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
         xp: ans.xpEarned,
         explanation: q.type === 'scam' ? q.explanations[ans.answer] : q.explanation
       };
-    });
+    }).filter(h => h !== null);
     
     onComplete(finalXP, history);
   };
@@ -258,10 +291,6 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
             >
               Continue
             </Button>
-            <button className="w-full flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 transition-colors">
-              <Share2 className="w-4 h-4" />
-              Share on leaderboard
-            </button>
           </div>
         </motion.div>
       </div>
@@ -308,17 +337,31 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
               exit={{ x: -100, opacity: 0 }}
               transition={{ type: 'spring', duration: 0.5 }}
             >
-              {/* Speaker Button for Question */}
+              {/* Auto-Read Toggle Button */}
               <div className="mb-4 flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => playTextToSpeech(currentQuestion.prompt)}
-                  disabled={isPlayingAudio}
+                  onClick={() => {
+                    const newAutoRead = !autoRead;
+                    setAutoRead(newAutoRead);
+                    if (newAutoRead) {
+                      playTextToSpeech(currentQuestion.prompt);
+                    }
+                  }}
                   className="gap-2"
                 >
-                  <Volume2 className={`h-4 w-4 ${isPlayingAudio ? 'animate-pulse text-green-500' : ''}`} />
-                  {isPlayingAudio ? 'Playing...' : 'Read Question'}
+                  {autoRead ? (
+                    <>
+                      <Volume2 className="h-4 w-4 text-green-500" />
+                      Auto-Read ON
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Auto-Read OFF
+                    </>
+                  )}
                 </Button>
               </div>
               <QuestionCard
@@ -362,6 +405,27 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
                     </p>
                   </div>
                 </div>
+                
+                {/* Show correct answer */}
+                {!currentAnswer.isCorrect && (
+                  <div className="mb-4 p-3 bg-white/50 rounded-lg border border-orange-300">
+                    <p className="text-sm font-semibold text-orange-900 mb-1">Correct answer:</p>
+                    <p className="text-orange-800">
+                      {currentQuestion.type === 'slider' 
+                        ? `${currentQuestion.answer}/100`
+                        : currentQuestion.type === 'scam'
+                        ? currentQuestion.choices[currentQuestion.correct]
+                        : currentQuestion.type === 'trueFalse'
+                        ? (currentQuestion.correct ? 'True' : 'False')
+                        : currentQuestion.type === 'multiSelect'
+                        ? (Array.isArray(currentQuestion.correct) 
+                            ? currentQuestion.correct.map((i: number) => currentQuestion.choices[i]).join(', ')
+                            : currentQuestion.choices[currentQuestion.correct])
+                        : 'N/A'
+                      }
+                    </p>
+                  </div>
+                )}
                 
                 <p className="text-slate-700">
                   {currentQuestion.type === 'scam' 

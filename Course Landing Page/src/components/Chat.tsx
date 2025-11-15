@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Send, SkipForward } from 'lucide-react';
+import { Mic, Send, SkipForward, Edit3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { generatePersonalizedQuestions } from '../services/gemini';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ChatProps {
   messages: any[];
@@ -24,6 +25,9 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
   const [chatQuestions, setChatQuestions] = useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherInput, setOtherInput] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -80,16 +84,6 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Play TTS for the latest bot message
-  useEffect(() => {
-    if (messages.length > 0) {
-      const latestMessage = messages[messages.length - 1];
-      if (latestMessage.sender === 'arpa' && latestMessage.text) {
-        playTextToSpeech(latestMessage.text);
-      }
-    }
   }, [messages]);
 
   const playTextToSpeech = async (text: string) => {
@@ -174,9 +168,79 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
     }
   };
 
-  const handleSend = (answer?: string) => {
-    const responseText = answer || input.trim();
-    if (!responseText || isLoadingQuestions) return;
+  const validateAnswer = async (answer: string, question: any): Promise<{ isValid: boolean; feedback?: string }> => {
+    // Skip validation for choice questions or if answer is too short
+    if (question.inputType === 'choice' || answer.length < 3) {
+      return { isValid: true };
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+      const prompt = `You are a helpful AI assistant validating user responses in a financial literacy app.
+
+QUESTION: ${question.text}
+USER ANSWER: ${answer}
+
+Your task: Determine if this answer is clearly wrong or nonsensical. Only flag answers that are:
+- Completely irrelevant to the question
+- Contain gibberish or random characters
+- Are obviously joke/troll answers
+- Contain harmful or inappropriate content
+
+Do NOT flag answers for:
+- Grammar mistakes
+- Informal language
+- Different perspectives or opinions
+- Reasonable estimates or approximations
+
+Respond with JSON only:
+{
+  "isValid": true/false,
+  "feedback": "Brief friendly message asking them to try again (only if isValid is false)"
+}
+
+Example valid answers for "How much did you spend at Prisma?": "50", "around 30 euros", "maybe 25", "idk like 40?"
+Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      const validation = JSON.parse(text);
+      return validation;
+    } catch (error) {
+      console.error('Validation error:', error);
+      return { isValid: true }; // Default to accepting on error
+    }
+  };
+
+  const handleSend = async (answer?: string) => {
+    const responseText = answer || input.trim() || otherInput.trim();
+    if (!responseText || isLoadingQuestions || isValidating) return;
+
+    const currentQuestion = chatQuestions[currentQuestionIndex];
+
+    // Validate the answer with AI
+    setIsValidating(true);
+    const validation = await validateAnswer(responseText, currentQuestion);
+    setIsValidating(false);
+
+    if (!validation.isValid) {
+      // Add validation feedback message
+      const feedbackMessage = {
+        id: messages.length + 1,
+        sender: 'arpa',
+        text: validation.feedback || "Hmm, that doesn't quite make sense. Could you try answering again?",
+        timestamp: new Date()
+      };
+      setMessages([...messages, feedbackMessage]);
+      setInput('');
+      setOtherInput('');
+      setShowOtherInput(false);
+      return;
+    }
 
     const newMessages = [
       ...messages,
@@ -188,8 +252,6 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
       }
     ];
     setMessages(newMessages);
-
-    const currentQuestion = chatQuestions[currentQuestionIndex];
     
     // Save the answer
     const updatedUserData = { ...userData };
@@ -197,6 +259,8 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
     setUserData(updatedUserData);
 
     setInput('');
+    setOtherInput('');
+    setShowOtherInput(false);
 
     setTimeout(() => {
       if (currentQuestionIndex < chatQuestions.length - 1) {
@@ -219,7 +283,7 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
         setMessages([...newMessages, completionMessage]);
         setTimeout(onComplete, 2000);
       }
-    }, 800);
+    }, 300);
   };
 
   const handleMicToggle = () => {
@@ -324,11 +388,41 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
                 <button
                   key={option}
                   onClick={() => handleSend(option)}
-                  className="w-full p-3 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all"
+                  disabled={isValidating}
+                  className="w-full p-3 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all disabled:opacity-50"
                 >
                   {option}
                 </button>
               ))}
+              {/* Other option */}
+              {!showOtherInput ? (
+                <button
+                  onClick={() => setShowOtherInput(true)}
+                  className="w-full p-3 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 hover:border-purple-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all flex items-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Other (write your own)
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={otherInput}
+                    onChange={(e) => setOtherInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="Type your answer..."
+                    className="flex-1 px-4 py-3 bg-white border-2 border-purple-200 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                    autoFocus
+                  />
+                  <Button
+                    onClick={() => handleSend()}
+                    disabled={!otherInput.trim() || isValidating}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white h-12 w-12 rounded-md p-0 shadow-md disabled:opacity-50"
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -342,10 +436,14 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
               />
               <Button
                 onClick={() => handleSend()}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isValidating}
                 className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white h-12 w-12 rounded-md p-0 shadow-md disabled:opacity-50"
               >
-                <Send className="w-5 h-5" />
+                {isValidating ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
               </Button>
             </div>
           )

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
+import { Check } from 'lucide-react';
 
 interface QuestionCardProps {
   question: any;
@@ -12,6 +13,7 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
   const [sliderValue, setSliderValue] = useState(50);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<boolean | null>(null);
+  const [selectedMultiple, setSelectedMultiple] = useState<number[]>([]);
 
   // Handle missing or invalid question
   if (!question) {
@@ -29,6 +31,8 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
       onAnswer(selectedChoice);
     } else if (question.type === 'trueFalse' && selectedTrueFalse !== null) {
       onAnswer(selectedTrueFalse);
+    } else if (question.type === 'multiSelect' && selectedMultiple.length > 0) {
+      onAnswer(selectedMultiple);
     }
   };
 
@@ -55,7 +59,7 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
 
           <Slider
             value={[sliderValue]}
-            onValueChange={(value) => setSliderValue(value[0])}
+            onValueChange={(value: number[]) => setSliderValue(value[0])}
             max={100}
             step={1}
             className="mb-8"
@@ -123,6 +127,67 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
         <Button
           onClick={handleSubmit}
           disabled={selectedChoice === null}
+          className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Submit Answer
+        </Button>
+      </div>
+    );
+  }
+
+  if (question.type === 'multiSelect') {
+    const toggleSelection = (index: number) => {
+      if (selectedMultiple.includes(index)) {
+        setSelectedMultiple(selectedMultiple.filter(i => i !== index));
+      } else {
+        setSelectedMultiple([...selectedMultiple, index]);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-slate-900 mb-4">{question.prompt}</h2>
+          <p className="text-slate-600">Select all that apply</p>
+        </div>
+
+        <div className="space-y-3">
+          {question.choices.map((choice: string, index: number) => {
+            const isSelected = selectedMultiple.includes(index);
+            return (
+              <motion.button
+                key={index}
+                onClick={() => toggleSelection(index)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                  isSelected
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                    isSelected
+                      ? 'border-teal-500 bg-teal-500'
+                      : 'border-slate-300'
+                  }`}>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                  <span className={isSelected ? 'text-teal-700' : 'text-slate-700'}>
+                    {choice}
+                  </span>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={selectedMultiple.length === 0}
           className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Submit Answer
