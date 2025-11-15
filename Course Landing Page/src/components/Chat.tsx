@@ -13,13 +13,19 @@ interface ChatProps {
   chatMode: 'type' | 'voice' | null;
 }
 
+// ElevenLabs configuration
+const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
+const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'BlAlpGV1KY8jfuqWubtQ';
+
 export default function Chat({ messages, setMessages, onComplete, userData, setUserData, chatMode }: ChatProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [chatQuestions, setChatQuestions] = useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -29,13 +35,17 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
         
         // Start with first question
         setTimeout(() => {
-          setMessages([{
+          const firstMessage = {
             id: 1,
             sender: 'arpa',
             text: questions[0].text,
             timestamp: new Date()
-          }]);
+          };
+          setMessages([firstMessage]);
           setIsLoadingQuestions(false);
+          
+          // Play TTS for the first message
+          playTextToSpeech(questions[0].text);
         }, 500);
       } catch (error) {
         console.error('Failed to generate questions:', error);
@@ -49,13 +59,17 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
           }
         ];
         setChatQuestions(fallbackQuestions);
-        setMessages([{
+        const firstMessage = {
           id: 1,
           sender: 'arpa',
           text: fallbackQuestions[0].text,
           timestamp: new Date()
-        }]);
+        };
+        setMessages([firstMessage]);
         setIsLoadingQuestions(false);
+        
+        // Play TTS for the fallback message
+        playTextToSpeech(fallbackQuestions[0].text);
       }
     };
 
@@ -67,6 +81,98 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Play TTS for the latest bot message
+  useEffect(() => {
+    if (messages.length > 0) {
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage.sender === 'arpa' && latestMessage.text) {
+        playTextToSpeech(latestMessage.text);
+      }
+    }
+  }, [messages]);
+
+  const playTextToSpeech = async (text: string) => {
+    try {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      setIsPlayingAudio(true);
+
+      // Get ElevenLabs API key
+      let apiKey = ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        if (typeof window !== 'undefined' && (window as any).ELEVEN_LABS_API_KEY) {
+          apiKey = (window as any).ELEVEN_LABS_API_KEY;
+        }
+        if (!apiKey) {
+          apiKey = localStorage.getItem('elevenlabs_api_key') || '';
+        }
+      }
+      
+      if (!apiKey) {
+        console.log('No ElevenLabs API key found, skipping TTS');
+        setIsPlayingAudio(false);
+        return;
+      }
+
+      console.log('Converting text to speech:', text.substring(0, 50) + '...');
+
+      // Use Rachel voice (popular female voice for conversational content)
+      const voiceId = ELEVENLABS_VOICE_ID;
+      
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_monolingual_v1',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('TTS API Error:', errorText);
+        setIsPlayingAudio(false);
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        console.error('Audio playback error');
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      console.log('Playing TTS audio');
+
+    } catch (error) {
+      console.error('TTS error:', error);
+      setIsPlayingAudio(false);
+    }
+  };
 
   const handleSend = (answer?: string) => {
     const responseText = answer || input.trim();
@@ -95,26 +201,22 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
     setTimeout(() => {
       if (currentQuestionIndex < chatQuestions.length - 1) {
         const nextQuestion = chatQuestions[currentQuestionIndex + 1];
-        setMessages([
-          ...newMessages,
-          {
-            id: newMessages.length + 1,
-            sender: 'arpa',
-            text: nextQuestion.text,
-            timestamp: new Date()
-          }
-        ]);
+        const nextMessage = {
+          id: newMessages.length + 1,
+          sender: 'arpa',
+          text: nextQuestion.text,
+          timestamp: new Date()
+        };
+        setMessages([...newMessages, nextMessage]);
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
-        setMessages([
-          ...newMessages,
-          {
-            id: newMessages.length + 1,
-            sender: 'arpa',
-            text: "Perfect! I've learned a lot about you. Give me a moment to create your personalized learning path...",
-            timestamp: new Date()
-          }
-        ]);
+        const completionMessage = {
+          id: newMessages.length + 1,
+          sender: 'arpa',
+          text: "Perfect! I've learned a lot about you. Give me a moment to create your personalized learning path...",
+          timestamp: new Date()
+        };
+        setMessages([...newMessages, completionMessage]);
         setTimeout(onComplete, 2000);
       }
     }, 800);
@@ -164,12 +266,17 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-md relative">
             <span className="text-xl">🤖</span>
+            {isPlayingAudio && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            )}
           </div>
           <div>
             <h3 className="text-gray-900">Vatra</h3>
-            <p className="text-gray-600 text-sm">AI Finance Guide</p>
+            <p className="text-gray-600 text-sm">
+              {isPlayingAudio ? '🔊 Speaking...' : 'AI Finance Guide'}
+            </p>
           </div>
           <button
             onClick={handleSkip}

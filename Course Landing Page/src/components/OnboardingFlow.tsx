@@ -18,24 +18,31 @@ const preparednessLevels = [
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
+  const [userName, setUserName] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedPreparedness, setSelectedPreparedness] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const handleNameSubmit = () => {
+    if (userName.trim()) {
+      setTimeout(() => setStep(1), 300);
+    }
+  };
+
   const handleCountrySelect = (country: string) => {
     setSelectedCountry(country);
-    setTimeout(() => setStep(1), 300);
+    setTimeout(() => setStep(2), 300);
   };
 
   const handleRoleSelect = (role: string) => {
     setSelectedRole(role);
-    setTimeout(() => setStep(2), 300);
+    setTimeout(() => setStep(3), 300);
   };
 
   const handlePreparednessSelect = (preparedness: string) => {
     setSelectedPreparedness(preparedness);
-    setTimeout(() => setStep(3), 300);
+    setTimeout(() => setStep(4), 300);
   };
 
   const handlePersonalizationChoice = (choice: 'yes' | 'skip') => {
@@ -45,6 +52,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     console.log('[Onboarding] Personalization choice:', choice === 'yes' ? 'true' : 'false');
 
     const onboardingData = {
+      name: userName.trim(),
       country: selectedCountry,
       role: selectedRole.toLowerCase(),
       preparedness: selectedPreparedness,
@@ -63,8 +71,41 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div className="h-full bg-gradient-to-br from-teal-50 via-white to-purple-50 flex items-center justify-center px-6">
       <div className="w-full max-w-[382px]">
         <AnimatePresence mode="wait">
-          {/* Question 1: Country */}
+          {/* Question 0: Name */}
           {step === 0 && (
+            <motion.div
+              key="name"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-gray-900 mb-3 text-left">What's your name?</h2>
+              <p className="text-gray-600 mb-8 text-left">We'll use this to personalize your experience</p>
+              
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleNameSubmit()}
+                placeholder="Enter your name"
+                className="w-full p-4 bg-white border-2 border-gray-200 focus:border-teal-400 focus:outline-none rounded-md text-gray-900 mb-4"
+                autoFocus
+              />
+              
+              <Button
+                onClick={handleNameSubmit}
+                disabled={!userName.trim()}
+                className="w-full h-14 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Continue
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Question 1: Country */}
+          {step === 1 && (
             <motion.div
               key="country"
               initial={{ opacity: 0, x: 20 }}
@@ -92,7 +133,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           )}
 
           {/* Question 2: Role */}
-          {step === 1 && (
+          {step === 2 && (
             <motion.div
               key="role"
               initial={{ opacity: 0, x: 20 }}
@@ -120,7 +161,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           )}
 
           {/* Question 3: Financial Preparedness */}
-          {step === 2 && (
+          {step === 3 && (
             <motion.div
               key="preparedness"
               initial={{ opacity: 0, x: 20 }}
@@ -149,7 +190,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           )}
 
           {/* Question 4: Personalization */}
-          {step === 3 && (
+          {step === 4 && (
             <motion.div
               key="personalization"
               initial={{ opacity: 0, x: 20 }}

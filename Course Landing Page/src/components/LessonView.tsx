@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, XCircle, Sparkles, Share2 } from 'lucide-react';
+import { X, CheckCircle, XCircle, Sparkles, Share2, Volume2 } from 'lucide-react';
 import { Button } from './ui/button';
 import QuestionCard from './QuestionCard';
+
+// ElevenLabs configuration
+const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
+const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'BlAlpGV1KY8jfuqWubtQ';
 
 interface LessonViewProps {
   questions: any[];
   facts: string[];
-  onComplete: (earnedXP: number) => void;
+  onComplete: (earnedXP: number, history: any[]) => void;
   onBack: () => void;
 }
 
@@ -17,6 +21,12 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  
+  const correctSoundRef = useRef<HTMLAudioElement>(null);
+  const wrongSoundRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Error handling for empty or invalid data
   if (!questions || questions.length === 0) {
@@ -57,6 +67,16 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
 
     setCurrentAnswer({ answer, isCorrect, xpEarned });
     setShowFeedback(true);
+    
+    // Play sound effect
+    if (isCorrect) {
+      correctSoundRef.current?.play();
+    } else {
+      wrongSoundRef.current?.play();
+      // Trigger shake animation
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+    }
   };
 
   const handleNext = () => {
@@ -73,7 +93,117 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
 
   const handleComplete = () => {
     const finalXP = answers.reduce((sum, a) => sum + a.xp, 0) + (currentAnswer?.xpEarned || 0);
-    onComplete(finalXP);
+    const allAnswers = [...answers, currentAnswer];
+    
+    // Create detailed history for each question
+    const history = allAnswers.map((ans, idx) => {
+      const q = questions[idx];
+      let userAnswerText = '';
+      let correctAnswerText = '';
+      
+      if (q.type === 'slider') {
+        userAnswerText = `${ans.answer}/100`;
+        correctAnswerText = `${q.answer}/100`;
+      } else if (q.type === 'scam') {
+        userAnswerText = q.choices[ans.answer];
+        correctAnswerText = q.choices[q.correct];
+      } else if (q.type === 'trueFalse') {
+        userAnswerText = ans.answer ? 'True' : 'False';
+        correctAnswerText = q.correct ? 'True' : 'False';
+      }
+      
+      return {
+        question: q.prompt,
+        userAnswer: userAnswerText,
+        correctAnswer: correctAnswerText,
+        correct: ans.isCorrect,
+        xp: ans.xpEarned,
+        explanation: q.type === 'scam' ? q.explanations[ans.answer] : q.explanation
+      };
+    });
+    
+    onComplete(finalXP, history);
+  };
+
+  const playTextToSpeech = async (text: string) => {
+    try {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      setIsPlayingAudio(true);
+
+      // Get ElevenLabs API key
+      let apiKey = ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        if (typeof window !== 'undefined' && (window as any).ELEVEN_LABS_API_KEY) {
+          apiKey = (window as any).ELEVEN_LABS_API_KEY;
+        }
+        if (!apiKey) {
+          apiKey = localStorage.getItem('elevenlabs_api_key') || '';
+        }
+      }
+      
+      if (!apiKey) {
+        console.log('No ElevenLabs API key found, skipping TTS');
+        setIsPlayingAudio(false);
+        return;
+      }
+
+      console.log('Converting question to speech...');
+
+      const voiceId = ELEVENLABS_VOICE_ID;
+      
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_monolingual_v1',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('TTS API Error:', errorText);
+        setIsPlayingAudio(false);
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        console.error('Audio playback error');
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      console.log('Playing question audio');
+
+    } catch (error) {
+      console.error('TTS error:', error);
+      setIsPlayingAudio(false);
+    }
   };
 
   if (showSummary) {
@@ -140,6 +270,9 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
 
   return (
     <div className="h-full bg-gradient-to-b from-white to-slate-50 flex flex-col">
+      {/* Audio elements */}
+      <audio ref={correctSoundRef} src="/correct.mp3" preload="auto" />
+      <audio ref={wrongSoundRef} src="/wrong-47985.mp3" preload="auto" />
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between mb-3">
@@ -175,6 +308,19 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
               exit={{ x: -100, opacity: 0 }}
               transition={{ type: 'spring', duration: 0.5 }}
             >
+              {/* Speaker Button for Question */}
+              <div className="mb-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => playTextToSpeech(currentQuestion.prompt)}
+                  disabled={isPlayingAudio}
+                  className="gap-2"
+                >
+                  <Volume2 className={`h-4 w-4 ${isPlayingAudio ? 'animate-pulse text-green-500' : ''}`} />
+                  {isPlayingAudio ? 'Playing...' : 'Read Question'}
+                </Button>
+              </div>
               <QuestionCard
                 question={currentQuestion}
                 onAnswer={handleAnswer}
@@ -184,8 +330,15 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
             <motion.div
               key={`feedback-${currentQuestionIndex}`}
               initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
+              animate={{ 
+                scale: 1, 
+                opacity: 1,
+                x: isShaking ? [0, -10, 10, -10, 10, -5, 5, 0] : 0
+              }}
               exit={{ scale: 0.9, opacity: 0 }}
+              transition={{
+                x: { duration: 0.4, ease: "easeInOut" }
+              }}
               className="space-y-6"
             >
               {/* Feedback */}

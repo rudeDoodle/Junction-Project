@@ -36,6 +36,13 @@ const initialData = {
     { id: 5, name: "Mikko", xp: 720, avatar: "img5" },
     { id: 1, name: "Demo User", xp: 420, avatar: "img3" }
   ],
+  friendsLeaderboard: [
+    { id: 6, name: "Emma", xp: 650, avatar: "img1" },
+    { id: 7, name: "Lauri", xp: 580, avatar: "img2" },
+    { id: 1, name: "Demo User", xp: 420, avatar: "img3" },
+    { id: 8, name: "Sofia", xp: 390, avatar: "img4" },
+    { id: 9, name: "Ville", xp: 320, avatar: "img5" }
+  ],
   questions: [
     {
       id: 1,
@@ -201,8 +208,39 @@ const initialData = {
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'welcome' | 'onboarding' | 'chatMode' | 'chat' | 'loading' | 'main' | 'lesson'>('welcome');
   const [activeTab, setActiveTab] = useState<'home' | 'learn' | 'news' | 'finance' | 'profile'>('home');
-  const [userData, setUserData] = useState(initialData.user);
+  
+  // Initialize streak from localStorage and check if it should be reset
+  const checkAndResetStreak = () => {
+    const storedStreak = localStorage.getItem('currentStreak');
+    const lastCompletionDate = localStorage.getItem('lastLessonCompletion');
+    
+    if (!lastCompletionDate || !storedStreak) {
+      return 0;
+    }
+    
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const lastCompletion = new Date(lastCompletionDate);
+    const yesterdayString = yesterday.toDateString();
+    const lastCompletionString = lastCompletion.toDateString();
+    const todayString = today.toDateString();
+    
+    // If last completion was today or yesterday, keep the streak
+    if (lastCompletionString === todayString || lastCompletionString === yesterdayString) {
+      return parseInt(storedStreak);
+    }
+    
+    // Otherwise, streak is broken - reset to 0
+    localStorage.setItem('currentStreak', '0');
+    return 0;
+  };
+  
+  const initialStreak = checkAndResetStreak();
+  const [userData, setUserData] = useState({...initialData.user, streak: initialStreak});
   const [leaderboard, setLeaderboard] = useState(initialData.leaderboard);
+  const [friendsLeaderboard, setFriendsLeaderboard] = useState(initialData.friendsLeaderboard);
   const [appData, setAppData] = useState(initialData);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'warning' | 'success' } | null>(null);
@@ -210,6 +248,7 @@ export default function App() {
   const [chatMode, setChatMode] = useState<'type' | 'voice' | null>(null);
   const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(null);
   const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
+  const [detailedHistory, setDetailedHistory] = useState<any[]>([]);
 
   const updateUserXP = (xpGain: number) => {
     setUserData(prev => {
@@ -225,11 +264,51 @@ export default function App() {
   };
 
   const updateStreak = () => {
-    setUserData(prev => ({ ...prev, streak: prev.streak + 1 }));
+    const today = new Date().toDateString();
+    const lastCompletionDate = localStorage.getItem('lastLessonCompletion');
+    const storedStreak = localStorage.getItem('currentStreak');
+    const currentStreak = storedStreak ? parseInt(storedStreak) : 0;
+    
+    // If already completed today, don't increment
+    if (lastCompletionDate === today) {
+      return;
+    }
+    
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayString = yesterday.toDateString();
+    
+    let newStreak = currentStreak;
+    
+    if (!lastCompletionDate) {
+      // First time completing
+      newStreak = 1;
+    } else if (lastCompletionDate === yesterdayString) {
+      // Completed yesterday, increment streak
+      newStreak = currentStreak + 1;
+    } else {
+      // Missed days, reset to 1
+      newStreak = 1;
+    }
+    
+    localStorage.setItem('currentStreak', newStreak.toString());
+    setUserData(prev => ({ ...prev, streak: newStreak }));
   };
 
   const handleOnboardingComplete = (data: any) => {
-    setUserData(prev => ({ ...prev, ...data }));
+    const updatedUserData = { ...userData, ...data };
+    setUserData(updatedUserData);
+    
+    // Update leaderboards with new name
+    if (data.name) {
+      setLeaderboard(current => 
+        current.map(user => user.id === userData.id ? { ...user, name: data.name } : user)
+      );
+      setFriendsLeaderboard(current =>
+        current.map(user => user.id === userData.id ? { ...user, name: data.name } : user)
+      );
+    }
+    
     if (data.skipChat) {
       setCurrentScreen('main');
     } else {
@@ -295,11 +374,33 @@ export default function App() {
     }
   };
 
-  const handleLessonComplete = (earnedXP: number) => {
+  const handleLessonComplete = (earnedXP: number, history: any[]) => {
     updateUserXP(earnedXP);
     updateStreak();
+    
+    // Add to detailed history (keep last 20 results)
+    setDetailedHistory(prev => [...history, ...prev].slice(0, 20));
+    
+    // Save completion date for streak tracking
+    const today = new Date().toDateString();
+    const lastCompletionDate = localStorage.getItem('lastLessonCompletion');
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayString = yesterday.toDateString();
+    
+    // Save the completion date
+    localStorage.setItem('lastLessonCompletion', today);
+    
+    // Show appropriate message
+    let message = `Awesome! +${earnedXP} XP — keep stacking that streak`;
+    if (lastCompletionDate === yesterdayString) {
+      message = `🔥 Streak continued! +${earnedXP} XP — you're on fire!`;
+    } else if (!lastCompletionDate || lastCompletionDate !== yesterdayString) {
+      message = `Great start! +${earnedXP} XP — complete another lesson tomorrow to build your streak!`;
+    }
+    
     setCurrentScreen('main');
-    setNotification({ message: `Awesome! +${earnedXP} XP — keep stacking that streak`, type: 'success' });
+    setNotification({ message, type: 'success' });
     setTimeout(() => setNotification(null), 3000);
   };
 
@@ -369,7 +470,9 @@ export default function App() {
                   <Home 
                     userData={userData}
                     leaderboard={leaderboard}
+                    friendsLeaderboard={friendsLeaderboard}
                     pastResults={appData.pastResults}
+                    detailedHistory={detailedHistory}
                     onStartLesson={handleStartLesson}
                   />
                 )}
