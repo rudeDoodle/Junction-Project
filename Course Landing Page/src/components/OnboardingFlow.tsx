@@ -9,11 +9,18 @@ interface OnboardingFlowProps {
 
 const countries = ['Finland', 'Sweden', 'Norway', 'Denmark', 'Estonia', 'Other'];
 const roles = ['Student', 'Teen', 'Adult'];
+const preparednessLevels = [
+  { value: 'beginner', label: 'Just starting out', desc: 'I know very little about managing money' },
+  { value: 'learning', label: 'Learning the basics', desc: 'I understand some concepts but need more' },
+  { value: 'confident', label: 'Pretty confident', desc: 'I handle my finances but want to improve' },
+  { value: 'advanced', label: 'Very prepared', desc: 'Im comfortable with most financial topics' }
+];
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedPreparedness, setSelectedPreparedness] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleCountrySelect = (country: string) => {
@@ -26,6 +33,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setTimeout(() => setStep(2), 300);
   };
 
+  const handlePreparednessSelect = (preparedness: string) => {
+    setSelectedPreparedness(preparedness);
+    setTimeout(() => setStep(3), 300);
+  };
+
   const handlePersonalizationChoice = (choice: 'yes' | 'skip') => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -35,6 +47,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     const onboardingData = {
       country: selectedCountry,
       role: selectedRole.toLowerCase(),
+      preparedness: selectedPreparedness,
       skipChat: choice === 'skip',
       personalize: choice === 'yes'
     };
@@ -106,8 +119,37 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </motion.div>
           )}
 
-          {/* Question 3: Personalization */}
+          {/* Question 3: Financial Preparedness */}
           {step === 2 && (
+            <motion.div
+              key="preparedness"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-gray-900 mb-3 text-left">How well-prepared financially are you?</h2>
+              <p className="text-gray-600 mb-8 text-left">This helps us match you with the right content</p>
+              
+              <div className="space-y-3">
+                {preparednessLevels.map((level) => (
+                  <motion.button
+                    key={level.value}
+                    onClick={() => handlePreparednessSelect(level.value)}
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full p-4 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-left transition-all"
+                  >
+                    <div className="text-gray-900 font-medium mb-1">{level.label}</div>
+                    <div className="text-gray-600 text-sm">{level.desc}</div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Question 4: Personalization */}
+          {step === 3 && (
             <motion.div
               key="personalization"
               initial={{ opacity: 0, x: 20 }}

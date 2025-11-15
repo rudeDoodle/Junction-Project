@@ -151,6 +151,68 @@ export default function Learn({ userData, onStartLesson }: LearnProps) {
           </Button>
         </div>
       </div>
+
+      {/* Video Player Modal */}
+      <AnimatePresence>
+        {selectedVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedVideo(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-lg overflow-hidden w-full max-w-md shadow-2xl"
+            >
+              {/* Video Player Header */}
+              <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+                <h4 className="text-gray-900 text-sm">{selectedVideo.title}</h4>
+                <button
+                  onClick={() => setSelectedVideo(null)}
+                  className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-md flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-700" />
+                </button>
+              </div>
+
+              {/* Video Area (Simulated) */}
+              <div className="aspect-video bg-gray-100 flex items-center justify-center relative">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-16 h-16 bg-teal-100 rounded-lg flex items-center justify-center"
+                >
+                  <Play className="w-8 h-8 text-teal-600 ml-1" />
+                </motion.div>
+                
+                {/* Simulated video playback indicator */}
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="h-1 bg-gray-300 rounded-sm overflow-hidden">
+                    <motion.div
+                      className="h-full bg-teal-500"
+                      initial={{ width: '0%' }}
+                      animate={{ width: '100%' }}
+                      transition={{ duration: 10, repeat: Infinity }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Video Info */}
+              <div className="p-4 bg-gray-50">
+                <p className="text-gray-700 text-sm">
+                  This is a placeholder for the AI-generated video content. In the full version, this would play the actual lesson video.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

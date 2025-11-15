@@ -40,56 +40,104 @@ const initialData = {
     {
       id: 1,
       type: "slider",
-      prompt: "Rate the risk 0–100: Someone asks to pay via gift card for a second-hand phone.",
-      answer: 80,
-      explanation: "Gift card payments are a huge red flag — scammers love them because they're untraceable!"
+      prompt: "Rate the risk 0–100: Someone on Facebook Marketplace asks you to pay via gift card for concert tickets.",
+      answer: 95,
+      explanation: "Gift card payments are a massive red flag — scammers love them because they're untraceable! Never pay for anything with gift cards unless you're actually buying a gift card."
     },
     {
       id: 2,
       type: "scam",
-      prompt: "You get a loan offer via DM with a low interest rate—what do you do?",
-      choices: ["Ignore it", "Verify via official site", "Pay the fee now", "Ask a friend"],
+      prompt: "You get a text saying 'Your Kela payment is on hold, click here to verify.' What do you do?",
+      choices: ["Click the link immediately", "Call Kela directly to verify", "Reply to the text asking questions", "Share it with friends first"],
       correct: 1,
       explanations: [
-        "Safe choice, but you might miss legit offers.",
-        "Perfect! Always check official sources before trusting DMs.",
-        "Nope — never pay upfront fees for loans!",
-        "Your friend might not know either. Check official sources!"
+        "Nope! Never click links in unexpected messages. Scammers create fake Kela sites to steal your info.",
+        "Perfect! Kela will never text you links like this. Always verify through official channels.",
+        "Don't engage! Scammers can use your reply to target you more.",
+        "Don't risk your friends falling for it. Report it instead!"
       ]
     },
     {
       id: 3,
-      type: "confidence",
-      prompt: "How confident are you about managing a monthly budget?",
-      choices: ["Very confident", "Somewhat confident", "Not very confident", "Need help"],
-      correct: null
+      type: "trueFalse",
+      prompt: "True or False: If a deal seems too good to be true (like 90% off designer shoes), it probably is.",
+      correct: true,
+      explanation: "Absolutely true! Scammers use unbelievable deals to lure victims. Always research the site, check reviews, and compare prices before buying."
     },
     {
       id: 4,
       type: "scam",
-      prompt: "A website offers designer shoes at 70% off. What's your move?",
-      choices: ["Buy immediately", "Check reviews first", "Compare prices elsewhere", "All of the above"],
-      correct: 3,
+      prompt: "You're at S-Market and see a deal: Buy €100 gift cards, get €20 free. Your friend says to load up. Smart move?",
+      choices: ["Buy as many as possible", "Buy one to test it", "Check if you'll actually use them", "Skip it completely"],
+      correct: 2,
       explanations: [
-        "Hold up! Too-good-to-be-true deals often are.",
-        "Smart, but do more digging!",
-        "Good thinking! Price comparison helps.",
-        "Exactly! Do your homework before buying."
+        "Whoa there! Only buy gift cards if you know you'll use them. Otherwise it's just tying up your money.",
+        "Better, but still risky if you forget to use it. Gift cards often expire or get lost.",
+        "Exactly! Gift card deals only make sense if you shop there regularly. Otherwise you're just giving them an interest-free loan.",
+        "Not necessarily skip it, but definitely think it through first."
       ]
     },
     {
       id: 5,
       type: "slider",
-      prompt: "Rate the risk 0–100: Clicking a link in an email about a package delivery you weren't expecting.",
+      prompt: "Rate the risk 0–100: Clicking a link in an email about a package delivery you weren't expecting from Posti.",
       answer: 90,
-      explanation: "Super risky! These phishing emails try to steal your info. Always go directly to the courier's official site."
+      explanation: "Super risky! These phishing emails try to steal your login info or install malware. Always go directly to Posti's official website or app if you're expecting something."
+    },
+    {
+      id: 6,
+      type: "scam",
+      prompt: "A study abroad program DMs you on Instagram offering scholarships. They need a €50 'application fee' by tomorrow. What's your move?",
+      choices: ["Pay quickly before the deadline", "Ignore it completely", "Research the program thoroughly first", "Ask them for more time"],
+      correct: 2,
+      explanations: [
+        "Stop! Legitimate scholarships never require upfront fees or pressure you with tight deadlines.",
+        "Safe choice, but you might miss real opportunities. Better to investigate first.",
+        "Perfect! Real programs will have official websites, reviews, and won't pressure you. Scams rush you into paying.",
+        "Real programs will give extensions. But fake ones will keep pressuring you. Best to verify first."
+      ]
+    },
+    {
+      id: 7,
+      type: "trueFalse",
+      prompt: "True or False: In Finland, student apartments from official organizations (like HOAS) are safer than random Facebook listings.",
+      correct: true,
+      explanation: "100% true! Official student housing organizations are regulated and safe. Facebook/Craigslist listings can be scams — always verify through official channels and never pay deposits to 'landlords' you haven't met in person."
+    },
+    {
+      id: 8,
+      type: "slider",
+      prompt: "Rate the risk 0–100: A new friend you met online asks to borrow €200 for an 'emergency' and promises to pay back next week.",
+      answer: 85,
+      explanation: "Major red flag! This is a common scam. Real friends won't ask strangers for money, especially online. Scammers build quick 'friendships' to gain trust, then disappear with your cash."
+    },
+    {
+      id: 9,
+      type: "scam",
+      prompt: "You see an ad for a part-time job: €500/week for simple online tasks, no experience needed. What should you do?",
+      choices: ["Apply immediately", "Check if it's a legitimate company", "Ask for upfront payment", "Share with everyone you know"],
+      correct: 1,
+      explanations: [
+        "Hold on! This screams scam. Legitimate jobs don't promise crazy money for 'simple tasks' with no experience.",
+        "Smart! Research the company on Google, check reviews, look for a real website and contact info. Most 'too good to be true' jobs are scams or MLMs.",
+        "You should never pay to work somewhere. That's a red flag!",
+        "Don't spread potential scams! Verify it first."
+      ]
+    },
+    {
+      id: 10,
+      type: "trueFalse",
+      prompt: "True or False: If someone sends you money by accident and asks you to send it back, you should do it right away.",
+      correct: false,
+      explanation: "False! This is a common scam. Scammers send you money from a stolen account, ask you to 'return' it to them, then the original payment gets reversed (because it was fraudulent), and you lose your money. Report it to your bank instead."
     }
   ],
   facts: [
-    "5 coffees ≈ €12 — about a short bus ride",
-    "€30 saved = movie + snack for two",
-    "Skipping one takeout meal/week = €200/year saved",
-    "That daily energy drink habit? Could be a weekend trip in 3 months"
+    "In Finland, a typical coffee at university campus café costs €2-3 — that's about €60/month if you buy one daily. Making coffee at home could save you €600/year!",
+    "Student discounts in Finland can save you 50% on public transport, movies, and museums. Always ask 'Do you have a student discount?' — you'd be surprised how much you can save!",
+    "The average Finnish student spends €800-900/month (including rent). About €350-450 goes to rent alone in major cities.",
+    "Kela (Finnish Social Insurance Institution) provides study grants and housing supplements to students. Make sure you've applied for all benefits you're eligible for!",
+    "S-Market, K-Market, and Lidl often have loyalty programs that give you discounts and points. These can add up to €10-20/month in savings if you shop smart!"
   ],
   news: [
     {
@@ -159,7 +207,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'warning' | 'success' } | null>(null);
   const [crazyPaymentCount, setCrazyPaymentCount] = useState(0);
-  const [chatMode, setChatMode] = useState<'type' | 'voice' | 'mcq' | null>(null);
+  const [chatMode, setChatMode] = useState<'type' | 'voice' | null>(null);
   const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(null);
   const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
 
@@ -189,7 +237,7 @@ export default function App() {
     }
   };
 
-  const handleChatModeSelected = (mode: 'type' | 'voice' | 'mcq') => {
+  const handleChatModeSelected = (mode: 'type' | 'voice') => {
     setChatMode(mode);
     setCurrentScreen('chat');
   };
@@ -202,6 +250,11 @@ export default function App() {
   };
 
   const handleStartLesson = () => {
+    // Use sample lesson data when starting from Home
+    setCurrentLesson({
+      questions: initialData.questions,
+      facts: initialData.facts
+    });
     setCurrentScreen('lesson');
   };
 
@@ -217,9 +270,14 @@ export default function App() {
         userData
       );
       
+      // Validate lesson data before setting
+      if (!lessonData || !lessonData.questions || lessonData.questions.length === 0) {
+        throw new Error('Invalid lesson data received');
+      }
+      
       setCurrentLesson({
         questions: lessonData.questions,
-        facts: lessonData.facts
+        facts: lessonData.facts || []
       });
       
       setCurrentScreen('lesson');
@@ -231,6 +289,7 @@ export default function App() {
       });
       setTimeout(() => setNotification(null), 3000);
       setCurrentScreen('main');
+      setActiveTab('learn');
     } finally {
       setIsGeneratingLesson(false);
     }

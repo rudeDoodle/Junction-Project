@@ -18,6 +18,23 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   const [currentAnswer, setCurrentAnswer] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
 
+  // Error handling for empty or invalid data
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="h-full bg-gradient-to-b from-white to-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md text-center">
+          <p className="text-slate-700 mb-4">Oops! No questions available for this lesson.</p>
+          <Button
+            onClick={onBack}
+            className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl"
+          >
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const totalXP = answers.reduce((sum, a) => sum + a.xp, 0);

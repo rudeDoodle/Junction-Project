@@ -13,6 +13,15 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<boolean | null>(null);
 
+  // Handle missing or invalid question
+  if (!question) {
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-200">
+        <p className="text-slate-700">Question not available</p>
+      </div>
+    );
+  }
+
   const handleSubmit = () => {
     if (question.type === 'slider') {
       onAnswer(sliderValue);

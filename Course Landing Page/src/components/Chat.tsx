@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Send, SkipForward } from 'lucide-react';
 import { Button } from './ui/button';
+import { generatePersonalizedQuestions } from '../services/gemini';
 
 interface ChatProps {
   messages: any[];
@@ -9,49 +10,57 @@ interface ChatProps {
   onComplete: () => void;
   userData: any;
   setUserData: (data: any) => void;
-  chatMode: 'type' | 'voice' | 'mcq' | null;
+  chatMode: 'type' | 'voice' | null;
 }
-
-const chatQuestions = [
-  { 
-    id: 1, 
-    text: "What's your gender?", 
-    type: "personal",
-    field: "gender",
-    mcqOptions: ["Male", "Female", "Non-binary", "Prefer not to say"]
-  },
-  { 
-    id: 2, 
-    text: "Do you have any income?", 
-    type: "financial",
-    field: "hasIncome",
-    mcqOptions: ["Yes, part-time job", "Yes, allowance", "No income yet", "Occasional earnings"]
-  },
-  { 
-    id: 3, 
-    text: "Do you save money regularly?", 
-    type: "financial",
-    field: "savingsHabit",
-    mcqOptions: ["Yes, regularly", "Sometimes", "Rarely", "Never"]
-  }
-];
 
 export default function Chat({ messages, setMessages, onComplete, userData, setUserData, chatMode }: ChatProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [chatQuestions, setChatQuestions] = useState<any[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (messages.length === 0) {
-      setTimeout(() => {
+    const loadQuestions = async () => {
+      try {
+        const questions = await generatePersonalizedQuestions(userData);
+        setChatQuestions(questions);
+        
+        // Start with first question
+        setTimeout(() => {
+          setMessages([{
+            id: 1,
+            sender: 'arpa',
+            text: questions[0].text,
+            timestamp: new Date()
+          }]);
+          setIsLoadingQuestions(false);
+        }, 500);
+      } catch (error) {
+        console.error('Failed to generate questions:', error);
+        // Fallback to basic questions
+        const fallbackQuestions = [
+          { 
+            id: 1, 
+            text: "What's your gender?", 
+            field: "gender",
+            options: ["Male", "Female", "Non-binary", "Prefer not to say"]
+          }
+        ];
+        setChatQuestions(fallbackQuestions);
         setMessages([{
           id: 1,
           sender: 'arpa',
-          text: chatQuestions[0].text,
+          text: fallbackQuestions[0].text,
           timestamp: new Date()
         }]);
-      }, 500);
+        setIsLoadingQuestions(false);
+      }
+    };
+
+    if (messages.length === 0) {
+      loadQuestions();
     }
   }, []);
 
@@ -61,7 +70,7 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
 
   const handleSend = (answer?: string) => {
     const responseText = answer || input.trim();
-    if (!responseText) return;
+    if (!responseText || isLoadingQuestions) return;
 
     const newMessages = [
       ...messages,
@@ -76,31 +85,9 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
 
     const currentQuestion = chatQuestions[currentQuestionIndex];
     
-    // FIXED: Map by question.type, not by index
+    // Save the answer
     const updatedUserData = { ...userData };
-    
-    switch (currentQuestion.type) {
-      case 'money':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Money question answered:', currentQuestion.field, responseText);
-        break;
-      case 'risk':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Risk question answered:', currentQuestion.field, responseText);
-        break;
-      case 'confidence':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Confidence question answered:', currentQuestion.field, responseText);
-        break;
-      case 'learning':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Learning question answered:', currentQuestion.field, responseText);
-        break;
-      default:
-        console.warn('[Chat] Unknown question type:', currentQuestion.type, '- defaulting to generic field');
-        updatedUserData[currentQuestion.field] = responseText;
-    }
-    
+    updatedUserData[currentQuestion.field] = responseText;
     setUserData(updatedUserData);
 
     setInput('');
@@ -124,7 +111,7 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
           {
             id: newMessages.length + 1,
             sender: 'arpa',
-            text: "Perfect! Give me a moment to prepare your personalized learning path...",
+            text: "Perfect! I've learned a lot about you. Give me a moment to create your personalized learning path...",
             timestamp: new Date()
           }
         ]);
@@ -158,6 +145,19 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
   };
 
   const currentQuestion = chatQuestions[currentQuestionIndex];
+
+  if (isLoadingQuestions) {
+    return (
+      <div className="h-full bg-gradient-to-br from-teal-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl shadow-lg mx-auto mb-4 animate-pulse">
+            🤖
+          </div>
+          <p className="text-gray-600">Preparing personalized questions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-gradient-to-br from-teal-50 via-white to-purple-50 flex flex-col">
@@ -209,18 +209,39 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
 
       {/* Input Area */}
       <div className="bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4 shadow-lg">
-        {chatMode === 'mcq' && currentQuestion.mcqOptions ? (
-          <div className="space-y-2">
-            {currentQuestion.mcqOptions.map((option) => (
-              <button
-                key={option}
-                onClick={() => handleSend(option)}
-                className="w-full p-3 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all"
+        {chatMode === 'type' && currentQuestion ? (
+          // For text mode, show options if available, otherwise show text input
+          currentQuestion.inputType === 'choice' && currentQuestion.options ? (
+            <div className="space-y-2">
+              {currentQuestion.options.map((option: string) => (
+                <button
+                  key={option}
+                  onClick={() => handleSend(option)}
+                  className="w-full p-3 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="Type your answer..."
+                className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:border-teal-400"
+              />
+              <Button
+                onClick={() => handleSend()}
+                disabled={!input.trim()}
+                className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white h-12 w-12 rounded-md p-0 shadow-md disabled:opacity-50"
               >
-                {option}
-              </button>
-            ))}
-          </div>
+                <Send className="w-5 h-5" />
+              </Button>
+            </div>
+          )
         ) : chatMode === 'voice' ? (
           <div className="flex flex-col items-center gap-3">
             <motion.button

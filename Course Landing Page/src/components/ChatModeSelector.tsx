@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Keyboard, Mic, List } from 'lucide-react';
 
 interface ChatModeSelectorProps {
-  onSelectMode: (mode: 'type' | 'voice' | 'mcq') => void;
+  onSelectMode: (mode: 'type' | 'voice') => void;
 }
 
 export default function ChatModeSelector({ onSelectMode }: ChatModeSelectorProps) {
@@ -11,19 +11,13 @@ export default function ChatModeSelector({ onSelectMode }: ChatModeSelectorProps
       id: 'type' as const,
       icon: Keyboard,
       title: 'Type your answers',
-      description: 'Best for detailed responses'
+      description: 'Mix of choices and typing'
     },
     {
       id: 'voice' as const,
       icon: Mic,
       title: 'Speak with microphone',
       description: 'Quick and hands-free'
-    },
-    {
-      id: 'mcq' as const,
-      icon: List,
-      title: 'Quick multiple-choice questions',
-      description: 'Fastest option'
     }
   ];
 
