@@ -1,9 +1,6 @@
 import { User, Settings, Bell, Eye, MessageSquare, Shield, LogOut, ChevronRight, Flame } from 'lucide-react';
 import { Switch } from './ui/switch';
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import EditProfileModal from './EditProfileModal';
-import PreferencesModal from './PreferencesModal';
 
 interface ProfileProps {
   userData: any;
@@ -15,15 +12,14 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
   const [notifications, setNotifications] = useState(true);
   const [streakProtection, setStreakProtection] = useState(true);
   const [highContrast, setHighContrast] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [showPreferences, setShowPreferences] = useState<{
-    open: boolean;
-    type: 'xp' | 'notifications' | 'text' | 'voice' | 'privacy';
-    title: string;
-  }>({ open: false, type: 'xp', title: '' });
+  const [largeText, setLargeText] = useState(false);
+  const [soundEffects, setSoundEffects] = useState(true);
+  const [vibration, setVibration] = useState(false);
+  const [privateMode, setPrivateMode] = useState(false);
+  const [saveAnalytics, setSaveAnalytics] = useState(true);
 
-  const handleSaveProfile = (data: any) => {
-    setUserData({ ...userData, ...data });
+  const updateField = (key: string, value: any) => {
+    setUserData({ ...userData, [key]: value });
   };
 
   const handleLogout = () => {
@@ -43,7 +39,7 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
           </div>
           <h2 className="text-white mb-1">{userData.name || 'Demo User'}</h2>
           <p className="text-white/80 mb-4">{userData.country} • {userData.role}</p>
-          
+
           <div className="flex gap-4">
             <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
               <p className="text-white/80 text-sm">Streak</p>
@@ -58,234 +54,157 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
       </div>
 
       <div className="px-6 mt-6 space-y-6">
-        {/* Personalization */}
+
+        {/* PERSONALIZATION */}
         <div>
           <h3 className="text-slate-900 mb-4">Personalization</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 p-4 space-y-4">
+            
+            {/* Edit name */}
+            <div>
+              <p className="text-sm text-slate-600 mb-1">Name</p>
+              <input
+                className="border px-3 py-2 rounded-lg w-full"
+                value={userData.name}
+                onChange={(e) => updateField('name', e.target.value)}
+              />
+            </div>
+
+            {/* Edit role */}
+            <div>
+              <p className="text-sm text-slate-600 mb-1">Role</p>
+              <input
+                className="border px-3 py-2 rounded-lg w-full"
+                value={userData.role}
+                onChange={(e) => updateField('role', e.target.value)}
+              />
+            </div>
+
+            {/* Edit country */}
+            <div>
+              <p className="text-sm text-slate-600 mb-1">Country</p>
+              <input
+                className="border px-3 py-2 rounded-lg w-full"
+                value={userData.country}
+                onChange={(e) => updateField('country', e.target.value)}
+              />
+            </div>
+
+            {/* Reopen chat */}
             <button
               onClick={onReopenChat}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              className="w-full mt-2 flex items-center justify-between bg-slate-50 p-3 rounded-xl hover:bg-slate-100"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Talk to Vatra again</p>
-                  <p className="text-slate-600 text-sm">Update your preferences</p>
-                </div>
-              </div>
+              <span className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-purple-600" />
+                Talk to Vatra again
+              </span>
               <ChevronRight className="w-5 h-5 text-slate-400" />
             </button>
 
-            <button
-              onClick={() => setShowEditProfile(true)}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                  <User className="w-5 h-5 text-teal-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Edit profile</p>
-                  <p className="text-slate-600 text-sm">Age, role, location</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
           </div>
         </div>
 
-        {/* Gamification */}
+        {/* GAMIFICATION */}
         <div>
           <h3 className="text-slate-900 mb-4">Gamification</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
+            
+            {/* Streak protection */}
             <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Flame className="w-5 h-5 text-orange-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Streak protection</p>
-                  <p className="text-slate-600 text-sm">Save streak if you miss a day</p>
-                </div>
+              <div>
+                <p className="text-slate-900">Streak protection</p>
+                <p className="text-slate-600 text-sm">Keep streak even if you miss a day</p>
               </div>
-              <Switch
-                checked={streakProtection}
-                onCheckedChange={setStreakProtection}
+              <Switch checked={streakProtection} onCheckedChange={setStreakProtection} />
+            </div>
+
+            {/* XP goal */}
+            <div className="p-4">
+              <p className="text-slate-900 mb-1">Daily XP goal</p>
+              <input
+                type="number"
+                className="border px-3 py-2 rounded-lg w-full"
+                value={userData.dailyXpGoal || 50}
+                onChange={(e) => updateField('dailyXpGoal', Number(e.target.value))}
               />
             </div>
 
-            <button
-              onClick={() => setShowPreferences({ open: true, type: 'xp', title: 'XP Preferences' })}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-amber-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">XP preferences</p>
-                  <p className="text-slate-600 text-sm">Customize your goals</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
           </div>
         </div>
 
-        {/* Notifications */}
+        {/* NOTIFICATIONS */}
         <div>
           <h3 className="text-slate-900 mb-4">Notifications</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y">
+
             <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Push notifications</p>
-                  <p className="text-slate-600 text-sm">Reminders & updates</p>
-                </div>
-              </div>
-              <Switch
-                checked={notifications}
-                onCheckedChange={setNotifications}
-              />
+              <p className="text-slate-900">Push notifications</p>
+              <Switch checked={notifications} onCheckedChange={setNotifications} />
             </div>
 
-            <button
-              onClick={() => setShowPreferences({ open: true, type: 'notifications', title: 'Notification Frequency' })}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Notification frequency</p>
-                  <p className="text-slate-600 text-sm">Daily</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-slate-900">Sound effects</p>
+              <Switch checked={soundEffects} onCheckedChange={setSoundEffects} />
+            </div>
+
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-slate-900">Vibration</p>
+              <Switch checked={vibration} onCheckedChange={setVibration} />
+            </div>
+
           </div>
         </div>
 
-        {/* Accessibility */}
+        {/* ACCESSIBILITY */}
         <div>
           <h3 className="text-slate-900 mb-4">Accessibility</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y">
+
             <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Eye className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">High contrast</p>
-                  <p className="text-slate-600 text-sm">Better visibility</p>
-                </div>
-              </div>
-              <Switch
-                checked={highContrast}
-                onCheckedChange={setHighContrast}
-              />
+              <p className="text-slate-900">High contrast mode</p>
+              <Switch checked={highContrast} onCheckedChange={setHighContrast} />
             </div>
 
-            <button
-              onClick={() => setShowPreferences({ open: true, type: 'text', title: 'Text Size' })}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Text size</p>
-                  <p className="text-slate-600 text-sm">Medium</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-slate-900">Large text</p>
+              <Switch checked={largeText} onCheckedChange={setLargeText} />
+            </div>
 
-            <button
-              onClick={() => setShowPreferences({ open: true, type: 'voice', title: 'VoiceOver' })}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-pink-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">VoiceOver</p>
-                  <p className="text-slate-600 text-sm">Screen reader support</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
           </div>
         </div>
 
-        {/* Account */}
+        {/* PRIVACY */}
         <div>
-          <h3 className="text-slate-900 mb-4">Account</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
-            <button
-              onClick={() => setShowPreferences({ open: true, type: 'privacy', title: 'Privacy & Data' })}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-slate-600" />
-                </div>
-                <div className="text-left">
-                  <p className="text-slate-900">Privacy & Data</p>
-                  <p className="text-slate-600 text-sm">Manage your data</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </button>
+          <h3 className="text-slate-900 mb-4">Privacy & Data</h3>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y">
+
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-slate-900">Private mode</p>
+              <Switch checked={privateMode} onCheckedChange={setPrivateMode} />
+            </div>
+
+            <div className="p-4 flex items-center justify-between">
+              <p className="text-slate-900">Anonymous analytics</p>
+              <Switch checked={saveAnalytics} onCheckedChange={setSaveAnalytics} />
+            </div>
 
             <button
               onClick={handleLogout}
-              className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              className="w-full p-4 text-left text-red-600 hover:bg-red-50"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                  <LogOut className="w-5 h-5 text-red-600" />
-                </div>
-                <p className="text-red-600">Log out</p>
-              </div>
+              Log out
             </button>
+
           </div>
         </div>
 
-        {/* App Info */}
         <div className="text-center text-slate-500 text-sm py-4">
           <p>Vatra v1.0.0</p>
           <p className="mt-1">Made with 🔥 for youth finance learning</p>
         </div>
-      </div>
 
-      {/* Modals rendered via portal */}
-      {createPortal(
-        <EditProfileModal
-          isOpen={showEditProfile}
-          onClose={() => setShowEditProfile(false)}
-          userData={userData}
-          onSave={handleSaveProfile}
-        />,
-        document.body
-      )}
-      {createPortal(
-        <PreferencesModal
-          isOpen={showPreferences.open}
-          onClose={() => setShowPreferences({ ...showPreferences, open: false })}
-          type={showPreferences.type}
-          title={showPreferences.title}
-        />,
-        document.body
-      )}
+      </div>
     </div>
   );
 }
