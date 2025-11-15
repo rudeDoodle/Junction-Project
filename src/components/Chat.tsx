@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Send, SkipForward } from 'lucide-react';
+import { Mic, Send, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
+import { getArpaResponse, type ConversationContext, type UserProfile } from '../services/aiService';
 
 interface ChatProps {
   messages: any[];
@@ -12,59 +13,16 @@ interface ChatProps {
   chatMode: 'type' | 'voice' | 'mcq' | null;
 }
 
-const chatQuestions = [
-  { 
-    id: 1, 
-    text: "How confident are you with managing your money?", 
-    type: "confidence",
-    field: "confidence",
-    mcqOptions: ["Very confident", "Somewhat confident", "Not very confident", "Just starting out"]
-  },
-  { 
-    id: 2, 
-    text: "Have you ever encountered a scam or suspicious offer?", 
-    type: "risk",
-    field: "scamExperience",
-    mcqOptions: ["Yes, multiple times", "Once or twice", "No, never", "Not sure"]
-  },
-  { 
-    id: 3, 
-    text: "How comfortable are you with digital banking and payment apps?", 
-    type: "confidence",
-    field: "digitalComfort",
-    mcqOptions: ["Very comfortable", "Somewhat comfortable", "Not very comfortable", "Never used them"]
-  },
-  { 
-    id: 4, 
-    text: "What best describes your money habits?", 
-    type: "money",
-    field: "moneyHabits",
-    mcqOptions: ["I save regularly", "I spend as I earn", "I often overspend", "I'm trying to improve"]
-  },
-  { 
-    id: 5, 
-    text: "Have you learned about personal finance before?", 
-    type: "learning",
-    field: "priorLearning",
-    mcqOptions: ["Yes, quite a bit", "A little", "No, this is new", "Want to learn more"]
-  }
-];
-
-export default function Chat({ messages, setMessages, onComplete, userData, setUserData, chatMode }: ChatProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+export default function Chat({ messages, setMessages, onComplete, userData, chatMode }: ChatProps) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (messages.length === 0) {
       setTimeout(() => {
-        setMessages([{
-          id: 1,
-          sender: 'arpa',
-          text: chatQuestions[0].text,
-          timestamp: new Date()
-        }]);
+        sendInitialMessage();
       }, 500);
     }
   }, []);
@@ -73,9 +31,38 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = (answer?: string) => {
+  const sendInitialMessage = async () => {
+    const userProfile: UserProfile = {
+      age: userData.age,
+      gender: userData.gender,
+      experience: userData.experience,
+      country: userData.country,
+      role: userData.role
+    };
+
+    const context: ConversationContext = {
+      userProfile,
+      conversationHistory: []
+    };
+
+    setIsAIThinking(true);
+    const arpaGreeting = await getArpaResponse(
+      "Start the conversation by introducing yourself as Arpa and asking your first question to understand the user's financial literacy background. Keep it friendly and casual.",
+      context
+    );
+    setIsAIThinking(false);
+
+    setMessages([{
+      id: 1,
+      sender: 'arpa',
+      text: arpaGreeting,
+      timestamp: new Date()
+    }]);
+  };
+
+  const handleSend = async (answer?: string) => {
     const responseText = answer || input.trim();
-    if (!responseText) return;
+    if (!responseText || isAIThinking) return;
 
     const newMessages = [
       ...messages,
@@ -87,64 +74,63 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
       }
     ];
     setMessages(newMessages);
-
-    const currentQuestion = chatQuestions[currentQuestionIndex];
-    
-    // FIXED: Map by question.type, not by index
-    const updatedUserData = { ...userData };
-    
-    switch (currentQuestion.type) {
-      case 'money':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Money question answered:', currentQuestion.field, responseText);
-        break;
-      case 'risk':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Risk question answered:', currentQuestion.field, responseText);
-        break;
-      case 'confidence':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Confidence question answered:', currentQuestion.field, responseText);
-        break;
-      case 'learning':
-        updatedUserData[currentQuestion.field] = responseText;
-        console.log('[Chat] Learning question answered:', currentQuestion.field, responseText);
-        break;
-      default:
-        console.warn('[Chat] Unknown question type:', currentQuestion.type, '- defaulting to generic field');
-        updatedUserData[currentQuestion.field] = responseText;
-    }
-    
-    setUserData(updatedUserData);
-
     setInput('');
 
-    setTimeout(() => {
-      if (currentQuestionIndex < chatQuestions.length - 1) {
-        const nextQuestion = chatQuestions[currentQuestionIndex + 1];
+    // Build conversation context
+    const userProfile: UserProfile = {
+      age: userData.age,
+      gender: userData.gender,
+      experience: userData.experience,
+      country: userData.country,
+      role: userData.role
+    };
+
+    const conversationHistory = messages.map(msg => ({
+      role: msg.sender === 'arpa' ? 'assistant' : 'user' as 'user' | 'assistant',
+      content: msg.text
+    }));
+
+    conversationHistory.push({
+      role: 'user',
+      content: responseText
+    });
+
+    const context: ConversationContext = {
+      userProfile,
+      conversationHistory
+    };
+
+    // Get AI response
+    setIsAIThinking(true);
+    const arpaResponse = await getArpaResponse(responseText, context);
+    setIsAIThinking(false);
+
+    const updatedMessages = [
+      ...newMessages,
+      {
+        id: newMessages.length + 1,
+        sender: 'arpa',
+        text: arpaResponse,
+        timestamp: new Date()
+      }
+    ];
+    setMessages(updatedMessages);
+
+    // Track question count and complete after 5-6 exchanges
+    if (messages.length >= 10) {
+      setTimeout(() => {
         setMessages([
-          ...newMessages,
+          ...updatedMessages,
           {
-            id: newMessages.length + 1,
+            id: updatedMessages.length + 1,
             sender: 'arpa',
-            text: nextQuestion.text,
-            timestamp: new Date()
-          }
-        ]);
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-      } else {
-        setMessages([
-          ...newMessages,
-          {
-            id: newMessages.length + 1,
-            sender: 'arpa',
-            text: "Perfect! Give me a moment to prepare your personalized learning path...",
+            text: "Perfect! I've got a great sense of where you're at. Give me a moment to prepare your personalized learning path... 🚀",
             timestamp: new Date()
           }
         ]);
         setTimeout(onComplete, 2000);
-      }
-    }, 800);
+      }, 1000);
+    }
   };
 
   const handleMicToggle = () => {
@@ -153,7 +139,7 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
       setTimeout(() => {
         setIsRecording(false);
         const mockResponses = ["Somewhat confident", "Once or twice", "Very comfortable", "I'm trying to improve", "A little"];
-        setInput(mockResponses[currentQuestionIndex] || "Sample response");
+        setInput(mockResponses[Math.floor(Math.random() * mockResponses.length)]);
       }, 2000);
     }
   };
@@ -164,14 +150,12 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
       {
         id: messages.length + 1,
         sender: 'arpa',
-        text: "No problem! I'll set up a great starting point for you...",
+        text: "No problem! I'll set up a great starting point for you... 😊",
         timestamp: new Date()
       }
     ]);
     setTimeout(onComplete, 1500);
   };
-
-  const currentQuestion = chatQuestions[currentQuestionIndex];
 
   return (
     <div className="h-full bg-gradient-to-br from-teal-50 via-white to-purple-50 flex flex-col">
@@ -217,25 +201,25 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
               </div>
             </motion.div>
           ))}
+          {isAIThinking && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-start"
+            >
+              <div className="bg-white border border-gray-200 text-gray-900 shadow-sm rounded-lg px-4 py-3 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+                <span>Arpa is thinking...</span>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
         <div ref={chatEndRef} />
       </div>
 
       {/* Input Area */}
       <div className="bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4 shadow-lg">
-        {chatMode === 'mcq' && currentQuestion.mcqOptions ? (
-          <div className="space-y-2">
-            {currentQuestion.mcqOptions.map((option) => (
-              <button
-                key={option}
-                onClick={() => handleSend(option)}
-                className="w-full p-3 bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-md rounded-md text-gray-900 text-left transition-all"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        ) : chatMode === 'voice' ? (
+        {chatMode === 'voice' ? (
           <div className="flex flex-col items-center gap-3">
             <motion.button
               onClick={handleMicToggle}

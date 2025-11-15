@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, MessageSquare } from 'lucide-react';
+import { Play, X, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
+import { getPersonalizedLearningPath, explainConcept, type UserProfile } from '../services/aiService';
 
 interface LearnProps {
   userData: any;
@@ -33,6 +34,89 @@ const videos = [
 
 export default function Learn({ userData }: LearnProps) {
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
+  const [learningPath, setLearningPath] = useState<any[]>([]);
+  const [isLoadingPath, setIsLoadingPath] = useState(false);
+  const [todaysTopic, setTodaysTopic] = useState<string>('Smart Money Moves for Students');
+  const [topicExplanation, setTopicExplanation] = useState<string>('');
+  const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
+
+  useEffect(() => {
+    loadPersonalizedPath();
+    loadTodaysTopic();
+  }, []);
+
+  const loadPersonalizedPath = async () => {
+    setIsLoadingPath(true);
+    try {
+      const userProfile: UserProfile = {
+        age: userData.age,
+        gender: userData.gender,
+        experience: userData.experience,
+        country: userData.country,
+        role: userData.role
+      };
+
+      const path = await getPersonalizedLearningPath(userProfile, { correct: 0, total: 0 });
+      if (path && path.length > 0) {
+        setLearningPath(path);
+      }
+    } catch (error) {
+      console.error('Failed to load personalized learning path:', error);
+    } finally {
+      setIsLoadingPath(false);
+    }
+  };
+
+  const loadTodaysTopic = async () => {
+    try {
+      const userProfile: UserProfile = {
+        age: userData.age,
+        gender: userData.gender,
+        experience: userData.experience,
+        country: userData.country,
+        role: userData.role
+      };
+
+      // Generate a personalized topic based on user profile
+      const topics = [
+        'Avoiding Online Scams',
+        'Managing Student Budget',
+        'Understanding Bank Fees',
+        'Building Credit Wisely',
+        'Digital Payment Security'
+      ];
+      
+      const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
+      setTodaysTopic(selectedTopic);
+    } catch (error) {
+      console.error('Failed to load today\'s topic:', error);
+    }
+  };
+
+  const handleTopicClick = async () => {
+    setIsLoadingExplanation(true);
+    try {
+      const userProfile: UserProfile = {
+        age: userData.age,
+        gender: userData.gender,
+        experience: userData.experience,
+        country: userData.country,
+        role: userData.role
+      };
+
+      const explanation = await explainConcept(
+        todaysTopic,
+        userProfile,
+        'This is the topic of the day. Make it practical and engaging.'
+      );
+      setTopicExplanation(explanation);
+    } catch (error) {
+      console.error('Failed to get topic explanation:', error);
+      setTopicExplanation('Unable to load explanation at this time. Please try again later.');
+    } finally {
+      setIsLoadingExplanation(false);
+    }
+  };
 
   const getIconForThumbnail = (type: string) => {
     const icons: Record<string, string> = {
@@ -53,9 +137,11 @@ export default function Learn({ userData }: LearnProps) {
 
       <div className="px-6 space-y-6">
         {/* Topic of the Day - COMPACT */}
-        <motion.div
+        <motion.button
+          onClick={handleTopicClick}
           whileHover={{ scale: 1.01 }}
-          className="bg-gradient-to-br from-lime-50 to-emerald-50 border-2 border-lime-200 rounded-lg p-4"
+          whileTap={{ scale: 0.99 }}
+          className="w-full bg-gradient-to-br from-lime-50 to-emerald-50 border-2 border-lime-200 rounded-lg p-4 text-left"
         >
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 bg-gradient-to-br from-lime-400 to-emerald-500 rounded flex items-center justify-center text-xs">
@@ -63,11 +149,80 @@ export default function Learn({ userData }: LearnProps) {
             </div>
             <h3 className="text-gray-900 text-sm">Topic of the Day</h3>
           </div>
-          <p className="text-gray-800 text-sm mb-3">Smart Money Moves for Students</p>
-          <Button className="w-full h-10 bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-600 hover:to-emerald-600 text-white rounded-md text-sm shadow-md">
-            Start Today's Topic
-          </Button>
-        </motion.div>
+          <p className="text-gray-800 text-sm mb-3">{todaysTopic}</p>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-lime-600" />
+            <span className="text-lime-700 text-xs">Personalized for you</span>
+          </div>
+        </motion.button>
+
+        {/* Topic Explanation Modal */}
+        <AnimatePresence>
+          {topicExplanation && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center"
+              onClick={() => setTopicExplanation('')}
+            >
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-t-3xl w-full max-w-md max-h-[80vh] overflow-y-auto p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-900">{todaysTopic}</h3>
+                  <button
+                    onClick={() => setTopicExplanation('')}
+                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+                {isLoadingExplanation ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-8 h-8 text-lime-500 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="prose prose-sm text-gray-700">
+                    {topicExplanation.split('\n\n').map((paragraph, idx) => (
+                      <p key={idx} className="mb-3">{paragraph}</p>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Personalized Learning Path */}
+        {isLoadingPath ? (
+          <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="w-5 h-5 text-teal-500 animate-spin" />
+              <p className="text-gray-600 text-sm">Loading your personalized path...</p>
+            </div>
+          </div>
+        ) : learningPath.length > 0 ? (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              <h3 className="text-gray-900 text-sm">Your Learning Path</h3>
+            </div>
+            <div className="space-y-2">
+              {learningPath.slice(0, 3).map((topic: any, idx: number) => (
+                <div key={idx} className="bg-white rounded-lg p-3 border border-blue-200">
+                  <h4 className="text-gray-900 text-sm mb-1">{topic.title}</h4>
+                  <p className="text-gray-600 text-xs">{topic.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* Videos Section */}
         <div>

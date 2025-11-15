@@ -1,22 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, XCircle, Sparkles, Share2 } from 'lucide-react';
+import { X, CheckCircle, XCircle, Sparkles, Share2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import QuestionCard from './QuestionCard';
+import { generatePersonalizedQuestions, type UserProfile } from '../services/aiService';
 
 interface LessonViewProps {
   questions: any[];
   facts: string[];
   onComplete: (earnedXP: number) => void;
   onBack: () => void;
+  userData?: any;
 }
 
-export default function LessonView({ questions, facts, onComplete, onBack }: LessonViewProps) {
+export default function LessonView({ questions: fallbackQuestions, facts, onComplete, onBack, userData }: LessonViewProps) {
+  const [questions, setQuestions] = useState<any[]>(fallbackQuestions);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
+
+  useEffect(() => {
+    if (userData) {
+      loadPersonalizedQuestions();
+    }
+  }, []);
+
+  const loadPersonalizedQuestions = async () => {
+    setIsLoadingQuestions(true);
+    try {
+      const userProfile: UserProfile = {
+        age: userData.age,
+        gender: userData.gender,
+        experience: userData.experience,
+        country: userData.country,
+        role: userData.role
+      };
+
+      const aiQuestions = await generatePersonalizedQuestions(userProfile, 'medium');
+      
+      if (aiQuestions && aiQuestions.length > 0) {
+        setQuestions(aiQuestions);
+      }
+    } catch (error) {
+      console.error('Failed to load personalized questions:', error);
+      // Fall back to default questions
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
 
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
@@ -146,8 +180,17 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
 
       {/* Question Area */}
       <div className="flex-1 overflow-y-auto p-6">
-        <AnimatePresence mode="wait">
-          {!showFeedback ? (
+        {isLoadingQuestions ? (
+          <div className="flex flex-col items-center justify-center h-full space-y-4">
+            <Loader2 className="w-12 h-12 text-teal-500 animate-spin" />
+            <div className="text-center">
+              <h3 className="text-slate-900 mb-2">Creating your personalized lesson</h3>
+              <p className="text-slate-600">Based on your profile and experience...</p>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {!showFeedback ? (
             <motion.div
               key={`question-${currentQuestionIndex}`}
               initial={{ x: 100, opacity: 0 }}
@@ -227,6 +270,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
     </div>
   );

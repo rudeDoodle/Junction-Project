@@ -315,6 +315,7 @@ export default function App() {
               facts={appData.facts}
               onComplete={handleLessonComplete}
               onBack={() => setCurrentScreen('main')}
+              userData={userData}
             />
           )}
         </AnimatePresence>
