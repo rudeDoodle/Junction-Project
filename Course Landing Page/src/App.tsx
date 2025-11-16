@@ -223,6 +223,16 @@ const loadFromLocalStorage = (key: string, defaultValue: any = null) => {
   }
 };
 
+const loadMessageHistory = (key: string) => {
+  const stored = loadFromLocalStorage(key, []);
+  if (Array.isArray(stored)) {
+    return stored;
+  }
+  console.warn(`Resetting ${key} history due to invalid data`, stored);
+  saveToLocalStorage(key, []);
+  return [];
+};
+
 // Clear all data once (first time after code change)
 const initializeApp = () => {
   const hasInitialized = localStorage.getItem('appInitialized_v2');
@@ -282,36 +292,38 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState(loadFromLocalStorage('leaderboard', initialData.leaderboard));
   const [friendsLeaderboard, setFriendsLeaderboard] = useState(loadFromLocalStorage('friendsLeaderboard', initialData.friendsLeaderboard));
   const [appData, setAppData] = useState(loadFromLocalStorage('appData', initialData));
-  const [chatMessages, setChatMessages] = useState<any[]>(loadFromLocalStorage('chatMessages', []));
+  const [chatMessages, setChatMessages] = useState<any[]>(() => loadMessageHistory('chatMessages'));
+  const [isChatPopupOpen, setIsChatPopupOpen] = useState(false);
+  const [chatPopupMessages, setChatPopupMessages] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'warning' | 'success' } | null>(null);
   const [crazyPaymentCount, setCrazyPaymentCount] = useState(loadFromLocalStorage('crazyPaymentCount', 0));
   const [chatMode] = useState<'type'>('type');
   const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(loadFromLocalStorage('currentLesson', null));
-  const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
+  const [_isGeneratingLesson, setIsGeneratingLesson] = useState(false);
   const [detailedHistory, setDetailedHistory] = useState<any[]>(loadFromLocalStorage('detailedHistory', []));
   const [cards, setCards] = useState<Array<{id: string; name: string; balance: number}>>(loadFromLocalStorage('cards', []));
   const [selectedCardId, setSelectedCardId] = useState<string | 'all'>(loadFromLocalStorage('selectedCardId', 'all'));
 
   const updateUserXP = (xpGain: number) => {
-    setUserData(prev => {
+    setUserData((prev: any) => {
       const newXP = prev.xp + xpGain;
       const updatedUser = { ...prev, xp: newXP };
       localStorage.setItem('userXP', newXP.toString());
       saveToLocalStorage('userData', updatedUser);
       
-      setLeaderboard(current => {
-        const updated = current.map(user => 
+      setLeaderboard((current: any[]) => {
+        const updated = current.map((user: any) => 
           user.id === prev.id ? { ...user, xp: newXP } : user
         );
-        const sorted = updated.sort((a, b) => b.xp - a.xp);
+        const sorted = updated.sort((a: any, b: any) => b.xp - a.xp);
         saveToLocalStorage('leaderboard', sorted);
         return sorted;
       });
-      setFriendsLeaderboard(current => {
-        const updated = current.map(user => 
+      setFriendsLeaderboard((current: any[]) => {
+        const updated = current.map((user: any) => 
           user.id === prev.id ? { ...user, xp: newXP } : user
         );
-        const sorted = updated.sort((a, b) => b.xp - a.xp);
+        const sorted = updated.sort((a: any, b: any) => b.xp - a.xp);
         saveToLocalStorage('friendsLeaderboard', sorted);
         return sorted;
       });
@@ -348,7 +360,7 @@ export default function App() {
     }
     
     localStorage.setItem('currentStreak', newStreak.toString());
-    setUserData(prev => ({ ...prev, streak: newStreak }));
+    setUserData((prev: any) => ({ ...prev, streak: newStreak }));
   };
 
   const handleOnboardingComplete = (data: any) => {
@@ -359,13 +371,13 @@ export default function App() {
     
     // Update leaderboards with new name
     if (data.name) {
-      setLeaderboard(current => {
-        const updated = current.map(user => user.id === userData.id ? { ...user, name: data.name } : user);
+      setLeaderboard((current: any[]) => {
+        const updated = current.map((user: any) => user.id === userData.id ? { ...user, name: data.name } : user);
         saveToLocalStorage('leaderboard', updated);
         return updated;
       });
-      setFriendsLeaderboard(current => {
-        const updated = current.map(user => user.id === userData.id ? { ...user, name: data.name } : user);
+      setFriendsLeaderboard((current: any[]) => {
+        const updated = current.map((user: any) => user.id === userData.id ? { ...user, name: data.name } : user);
         saveToLocalStorage('friendsLeaderboard', updated);
         return updated;
       });
@@ -383,6 +395,15 @@ export default function App() {
     setTimeout(() => {
       setCurrentScreen('main');
     }, 4000);
+  };
+
+  const handleOpenPopupChat = () => {
+    setChatPopupMessages([]);
+    setIsChatPopupOpen(true);
+  };
+
+  const handleClosePopupChat = () => {
+    setIsChatPopupOpen(false);
   };
 
   const handleStartLesson = () => {
@@ -538,11 +559,11 @@ export default function App() {
       category: payment.category
     };
     
-    setAppData(prev => {
+    setAppData((prev: any) => {
       const newTransactions = [newTransaction, ...prev.transactions];
       
       // Update category spending
-      const newFinances = prev.finances.map(finance => {
+      const newFinances = prev.finances.map((finance: any) => {
         if (finance.category === payment.category) {
           const newMonthly = finance.monthly + payment.amount;
           return { ...finance, monthly: newMonthly };
@@ -593,8 +614,10 @@ export default function App() {
               userData={userData}
               setUserData={setUserData}
               chatMode={chatMode}
+              mode="onboarding"
             />
           )}
+          
           
           {currentScreen === 'loading' && (
             <LoadingAnimation key="loading" />
@@ -647,7 +670,7 @@ export default function App() {
                   <Profile 
                     userData={userData}
                     setUserData={setUserData}
-                    onReopenChat={() => setCurrentScreen('chat')}
+                    onReopenChat={handleOpenPopupChat}
                   />
                 )}
               </div>
@@ -692,6 +715,41 @@ export default function App() {
           />
         )}
       </div>
+
+      <AnimatePresence>
+        {isChatPopupOpen && (
+          <motion.div
+            key="chat-popup"
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleClosePopupChat}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              className="w-full max-w-[430px] h-full bg-white rounded-[32px] shadow-2xl overflow-hidden relative"
+              style={{ height: 'min(90vh, 932px)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Chat
+                key="chat-popup-instance"
+                messages={chatPopupMessages}
+                setMessages={setChatPopupMessages}
+                onComplete={handleClosePopupChat}
+                userData={userData}
+                setUserData={setUserData}
+                chatMode={chatMode}
+                mode="freeChat"
+                onBack={handleClosePopupChat}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

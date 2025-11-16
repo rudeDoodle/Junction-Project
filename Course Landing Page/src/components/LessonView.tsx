@@ -297,7 +297,7 @@ export default function LessonView({ questions, facts, onComplete, onBack, userD
 
           <h2 className="text-teal-600 text-center mb-2">Lesson Complete!</h2>
           <p className="text-slate-600 text-center mb-8">
-            Nice work! You're getting bator at this 🎯
+            Nice work! You're getting better at this 🎯
           </p>
 
           <div className="space-y-4 mb-8">

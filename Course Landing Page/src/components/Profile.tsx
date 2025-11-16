@@ -18,8 +18,18 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
   const [privateMode, setPrivateMode] = useState(false);
   const [saveAnalytics, setSaveAnalytics] = useState(true);
 
+  const countries = ['Finland', 'Sweden', 'Norway', 'Denmark', 'Estonia', 'Other'];
+  const roles = ['Student', 'Teen', 'Adult'];
+
   const updateField = (key: string, value: any) => {
-    setUserData({ ...userData, [key]: value });
+    const updatedData = { ...userData, [key]: value };
+    setUserData(updatedData);
+    // Save to localStorage
+    try {
+      localStorage.setItem('userData', JSON.stringify(updatedData));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
   };
 
   const handleLogout = () => {
@@ -73,21 +83,33 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
             {/* Edit role */}
             <div>
               <p className="text-sm text-slate-600 mb-1">Role</p>
-              <input
-                className="border px-3 py-2 rounded-lg w-full"
+              <select
+                className="border px-3 py-2 rounded-lg w-full bg-white"
                 value={userData.role}
                 onChange={(e) => updateField('role', e.target.value)}
-              />
+              >
+                {roles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Edit country */}
             <div>
               <p className="text-sm text-slate-600 mb-1">Country</p>
-              <input
-                className="border px-3 py-2 rounded-lg w-full"
+              <select
+                className="border px-3 py-2 rounded-lg w-full bg-white"
                 value={userData.country}
                 onChange={(e) => updateField('country', e.target.value)}
-              />
+              >
+                {countries.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Reopen chat */}
