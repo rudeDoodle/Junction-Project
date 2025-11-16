@@ -1,4 +1,4 @@
-To run this you need to add a .env.local file and insert 3 API keys:
+To run this you need to add a .env.local file in the src folder  and insert 3 API keys in it:
 # Google Gemini API Key
 # Get your API key from: https://aistudio.google.com/app/apikey
 VITE_GEMINI_API_KEY=
