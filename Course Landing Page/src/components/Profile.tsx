@@ -27,7 +27,7 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to log out? Your progress is saved locally.')) {
+    if (confirm('Are you sure you want to reset all data? This will clear your progress, profile, and return you to the welcome screen.')) {
       localStorage.clear();
       window.location.reload();
     }
@@ -254,7 +254,10 @@ export default function Profile({ userData, setUserData, onReopenChat }: Profile
                 <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                   <LogOut className="w-5 h-5 text-red-600" />
                 </div>
-                <p className="text-red-600">Log out</p>
+                <div className="text-left">
+                  <p className="text-red-600 font-medium">Reset All Data</p>
+                  <p className="text-slate-500 text-xs">Clear progress and start fresh</p>
+                </div>
               </div>
             </button>
           </div>

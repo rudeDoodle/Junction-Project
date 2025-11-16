@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Welcome from './components/Welcome';
 import OnboardingFlow from './components/OnboardingFlow';
-import ChatModeSelector from './components/ChatModeSelector';
 import Chat from './components/Chat';
 import TabBar from './components/TabBar';
 import Home from './components/Home';
@@ -205,11 +204,44 @@ const initialData = {
   ]
 };
 
+// LocalStorage helpers
+const saveToLocalStorage = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
+};
+
+const loadFromLocalStorage = (key: string, defaultValue: any = null) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error('Error loading from localStorage:', error);
+    return defaultValue;
+  }
+};
+
+// Clear all data once (first time after code change)
+const initializeApp = () => {
+  const hasInitialized = localStorage.getItem('appInitialized_v2');
+  if (!hasInitialized) {
+    console.log('🔄 First time initialization - clearing old data');
+    localStorage.clear();
+    localStorage.setItem('appInitialized_v2', 'true');
+  }
+};
+
+initializeApp();
+
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'welcome' | 'onboarding' | 'chatMode' | 'chat' | 'loading' | 'main' | 'lesson'>('welcome');
+  // Check if user has completed onboarding
+  const hasCompletedOnboarding = loadFromLocalStorage('hasCompletedOnboarding', false);
+  const initialScreen = hasCompletedOnboarding ? 'main' : 'welcome';
+  
+  const [currentScreen, setCurrentScreen] = useState<'welcome' | 'onboarding' | 'chat' | 'loading' | 'main' | 'lesson'>(initialScreen);
   const [activeTab, setActiveTab] = useState<'home' | 'learn' | 'news' | 'finance' | 'profile'>('home');
-  const [cards, setCards] = useState<Array<{id: string; name: string; balance: number}>>([]);
-  const [selectedCardId, setSelectedCardId] = useState<string | 'all'>('all');
   
   // Initialize streak from localStorage and check if it should be reset
   const checkAndResetStreak = () => {
@@ -241,35 +273,49 @@ export default function App() {
   
   const initialStreak = checkAndResetStreak();
   const initialXP = parseInt(localStorage.getItem('userXP') || '0');
-  const [userData, setUserData] = useState({...initialData.user, streak: initialStreak, xp: initialXP});
-  const [leaderboard, setLeaderboard] = useState(initialData.leaderboard);
-  const [friendsLeaderboard, setFriendsLeaderboard] = useState(initialData.friendsLeaderboard);
-  const [appData, setAppData] = useState(initialData);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  
+  // Load all saved data from localStorage
+  const savedUserData = loadFromLocalStorage('userData', null);
+  const initialUserData = savedUserData ? {...savedUserData, streak: initialStreak, xp: initialXP} : {...initialData.user, streak: initialStreak, xp: initialXP};
+  
+  const [userData, setUserData] = useState(initialUserData);
+  const [leaderboard, setLeaderboard] = useState(loadFromLocalStorage('leaderboard', initialData.leaderboard));
+  const [friendsLeaderboard, setFriendsLeaderboard] = useState(loadFromLocalStorage('friendsLeaderboard', initialData.friendsLeaderboard));
+  const [appData, setAppData] = useState(loadFromLocalStorage('appData', initialData));
+  const [chatMessages, setChatMessages] = useState<any[]>(loadFromLocalStorage('chatMessages', []));
   const [notification, setNotification] = useState<{ message: string; type: 'warning' | 'success' } | null>(null);
-  const [crazyPaymentCount, setCrazyPaymentCount] = useState(0);
-  const [chatMode, setChatMode] = useState<'type' | 'voice' | null>(null);
-  const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(null);
+  const [crazyPaymentCount, setCrazyPaymentCount] = useState(loadFromLocalStorage('crazyPaymentCount', 0));
+  const [chatMode] = useState<'type'>('type');
+  const [currentLesson, setCurrentLesson] = useState<{ questions: any[]; facts: string[] } | null>(loadFromLocalStorage('currentLesson', null));
   const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
-  const [detailedHistory, setDetailedHistory] = useState<any[]>([]);
+  const [detailedHistory, setDetailedHistory] = useState<any[]>(loadFromLocalStorage('detailedHistory', []));
+  const [cards, setCards] = useState<Array<{id: string; name: string; balance: number}>>(loadFromLocalStorage('cards', []));
+  const [selectedCardId, setSelectedCardId] = useState<string | 'all'>(loadFromLocalStorage('selectedCardId', 'all'));
 
   const updateUserXP = (xpGain: number) => {
     setUserData(prev => {
       const newXP = prev.xp + xpGain;
+      const updatedUser = { ...prev, xp: newXP };
       localStorage.setItem('userXP', newXP.toString());
+      saveToLocalStorage('userData', updatedUser);
+      
       setLeaderboard(current => {
         const updated = current.map(user => 
           user.id === prev.id ? { ...user, xp: newXP } : user
         );
-        return updated.sort((a, b) => b.xp - a.xp);
+        const sorted = updated.sort((a, b) => b.xp - a.xp);
+        saveToLocalStorage('leaderboard', sorted);
+        return sorted;
       });
       setFriendsLeaderboard(current => {
         const updated = current.map(user => 
           user.id === prev.id ? { ...user, xp: newXP } : user
         );
-        return updated.sort((a, b) => b.xp - a.xp);
+        const sorted = updated.sort((a, b) => b.xp - a.xp);
+        saveToLocalStorage('friendsLeaderboard', sorted);
+        return sorted;
       });
-      return { ...prev, xp: newXP };
+      return updatedUser;
     });
   };
 
@@ -308,27 +354,28 @@ export default function App() {
   const handleOnboardingComplete = (data: any) => {
     const updatedUserData = { ...userData, ...data };
     setUserData(updatedUserData);
+    saveToLocalStorage('userData', updatedUserData);
+    saveToLocalStorage('hasCompletedOnboarding', true);
     
     // Update leaderboards with new name
     if (data.name) {
-      setLeaderboard(current => 
-        current.map(user => user.id === userData.id ? { ...user, name: data.name } : user)
-      );
-      setFriendsLeaderboard(current =>
-        current.map(user => user.id === userData.id ? { ...user, name: data.name } : user)
-      );
+      setLeaderboard(current => {
+        const updated = current.map(user => user.id === userData.id ? { ...user, name: data.name } : user);
+        saveToLocalStorage('leaderboard', updated);
+        return updated;
+      });
+      setFriendsLeaderboard(current => {
+        const updated = current.map(user => user.id === userData.id ? { ...user, name: data.name } : user);
+        saveToLocalStorage('friendsLeaderboard', updated);
+        return updated;
+      });
     }
     
     if (data.skipChat) {
       setCurrentScreen('main');
     } else {
-      setCurrentScreen('chatMode');
+      setCurrentScreen('chat');
     }
-  };
-
-  const handleChatModeSelected = (mode: 'type' | 'voice') => {
-    setChatMode(mode);
-    setCurrentScreen('chat');
   };
 
   const handleChatComplete = () => {
@@ -349,10 +396,13 @@ export default function App() {
   };
 
   const handleStartAILesson = async (topic: string) => {
+    console.log('🚀 Starting lesson generation for:', topic);
     setIsGeneratingLesson(true);
     setCurrentScreen('loading');
+    setCurrentLesson(null);
     
     try {
+      console.log('📚 Generating lesson...');
       const lessonData = await generateLesson(
         topic,
         userData.country || 'Finland',
@@ -360,19 +410,27 @@ export default function App() {
         userData
       );
       
-      // Validate lesson data before setting
       if (!lessonData || !lessonData.questions || lessonData.questions.length === 0) {
         throw new Error('Invalid lesson data received');
       }
+      
+      // Add small delay to ensure loading animation is visible
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       setCurrentLesson({
         questions: lessonData.questions,
         facts: lessonData.facts || []
       });
       
+      // Wait a tick to ensure state is updated before switching screen
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      setIsGeneratingLesson(false);
       setCurrentScreen('lesson');
+      console.log('🎉 Switched to lesson screen');
     } catch (error) {
-      console.error('Failed to generate lesson:', error);
+      console.error('❌ Failed to generate lesson:', error);
+      setIsGeneratingLesson(false);
       setNotification({ 
         message: 'Failed to generate lesson. Please try again.', 
         type: 'warning' 
@@ -380,8 +438,6 @@ export default function App() {
       setTimeout(() => setNotification(null), 3000);
       setCurrentScreen('main');
       setActiveTab('learn');
-    } finally {
-      setIsGeneratingLesson(false);
     }
   };
 
@@ -389,8 +445,14 @@ export default function App() {
     updateUserXP(earnedXP);
     updateStreak();
     
+    // Clear the saved lesson
+    setCurrentLesson(null);
+    localStorage.removeItem('currentLesson');
+    
     // Add to detailed history (keep last 20 results)
-    setDetailedHistory(prev => [...history, ...prev].slice(0, 20));
+    const newHistory = [...history, ...detailedHistory].slice(0, 20);
+    setDetailedHistory(newHistory);
+    saveToLocalStorage('detailedHistory', newHistory);
     
     // Save completion date for streak tracking
     const today = new Date().toDateString();
@@ -412,7 +474,7 @@ export default function App() {
     
     setCurrentScreen('main');
     setNotification({ message, type: 'success' });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const handleCrazyPayment = (_amount: number, _category: string) => {
@@ -443,16 +505,24 @@ export default function App() {
       name: cardType,
       balance: balance
     };
-    setCards(prev => [...prev, newCard]);
+    const updatedCards = [...cards, newCard];
+    setCards(updatedCards);
+    saveToLocalStorage('cards', updatedCards);
     setSelectedCardId(newCard.id);
+    saveToLocalStorage('selectedCardId', newCard.id);
     setNotification({ message: `${cardType} card connected successfully!`, type: 'success' });
     setTimeout(() => setNotification(null), 3000);
   };
 
   const handleRemoveCard = (cardId: string) => {
-    setCards(prev => prev.filter(card => card.id !== cardId));
+    const updatedCards = cards.filter(card => card.id !== cardId);
+    setCards(updatedCards);
+    saveToLocalStorage('cards', updatedCards);
+    
     if (selectedCardId === cardId) {
-      setSelectedCardId(cards.length > 1 ? cards[0].id : 'all');
+      const newSelectedId = updatedCards.length > 0 ? updatedCards[0].id : 'all';
+      setSelectedCardId(newSelectedId);
+      saveToLocalStorage('selectedCardId', newSelectedId);
     }
     setNotification({ message: 'Card removed successfully', type: 'success' });
     setTimeout(() => setNotification(null), 3000);
@@ -480,11 +550,14 @@ export default function App() {
         return finance;
       });
       
-      return {
+      const updatedAppData = {
         ...prev,
         transactions: newTransactions,
         finances: newFinances
       };
+      
+      saveToLocalStorage('appData', updatedAppData);
+      return updatedAppData;
     });
     
     setNotification({ message: `Cash payment of €${payment.amount.toFixed(2)} added successfully`, type: 'success' });
@@ -509,12 +582,7 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'chatMode' && (
-            <ChatModeSelector
-              key="chatMode"
-              onSelectMode={handleChatModeSelected}
-            />
-          )}
+          {/* Chat mode selector removed - using text-only mode */}
           
           {currentScreen === 'chat' && (
             <Chat 
@@ -558,7 +626,7 @@ export default function App() {
                   />
                 )}
                 {activeTab === 'news' && (
-                  <News news={appData.news} />
+                  <News news={appData.news} userData={userData}/>
                 )}
                 {activeTab === 'finance' && (
                   <Finance 
@@ -579,7 +647,7 @@ export default function App() {
                   <Profile 
                     userData={userData}
                     setUserData={setUserData}
-                    onReopenChat={() => setCurrentScreen('chatMode')}
+                    onReopenChat={() => setCurrentScreen('chat')}
                   />
                 )}
               </div>
@@ -588,14 +656,31 @@ export default function App() {
             </motion.div>
           )}
           
-          {currentScreen === 'lesson' && currentLesson && (
-            <LessonView
-              key="lesson"
-              questions={currentLesson.questions}
-              facts={currentLesson.facts}
-              onComplete={handleLessonComplete}
-              onBack={() => setCurrentScreen('main')}
-            />
+          {currentScreen === 'lesson' && currentLesson && currentLesson.questions && currentLesson.questions.length > 0 && (
+            <>
+              {console.log('✅ Rendering LessonView with', currentLesson.questions.length, 'questions')}
+              <LessonView
+                key="lesson"
+                questions={currentLesson.questions}
+                facts={currentLesson.facts}
+                onComplete={handleLessonComplete}
+                onBack={() => {
+                  console.log('👈 Back button clicked');
+                  setCurrentLesson(null);
+                  localStorage.removeItem('currentLesson');
+                  setCurrentScreen('main');
+                  setActiveTab('learn');
+                }}
+                userData={userData}
+              />
+            </>
+          )}
+          
+          {currentScreen === 'lesson' && (!currentLesson || !currentLesson.questions || currentLesson.questions.length === 0) && (
+            <>
+              {console.log('⚠️ Lesson screen active but no lesson data:', { currentLesson })}
+              <LoadingAnimation key="lesson-loading" />
+            </>
           )}
         </AnimatePresence>
 

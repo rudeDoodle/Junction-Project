@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, MessageSquare, Sparkles } from 'lucide-react';
+import { Play, X, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface LearnProps {
@@ -32,7 +32,7 @@ const videos = [
   }
 ];
 
-export default function Learn({ userData, onStartLesson }: LearnProps) {
+export default function Learn({ onStartLesson }: LearnProps) {
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -130,26 +130,7 @@ export default function Learn({ userData, onStartLesson }: LearnProps) {
           </div>
         </div>
 
-        {/* Practice with Vatra */}
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-xl shadow-md">
-              🤖
-            </div>
-            <div>
-              <h3 className="text-gray-900 text-sm">Practice with Vatra</h3>
-              <p className="text-gray-600 text-xs">Quick exercise on today's topic</p>
-            </div>
-          </div>
-          <Button 
-            onClick={() => handleStartLesson("Financial Practice Quiz")}
-            disabled={isGenerating}
-            className="w-full h-10 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-md text-sm shadow-md disabled:opacity-50"
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            {isGenerating ? 'Generating...' : 'Start Practice'}
-          </Button>
-        </div>
+        {/* Practice with Vatra - REMOVED */}
       </div>
 
       {/* Video Player Modal */}

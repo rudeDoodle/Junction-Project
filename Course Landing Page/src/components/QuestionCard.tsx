@@ -7,13 +7,15 @@ import { Check } from 'lucide-react';
 interface QuestionCardProps {
   question: any;
   onAnswer: (answer: any) => void;
+  isEvaluating?: boolean;
 }
 
-export default function QuestionCard({ question, onAnswer }: QuestionCardProps) {
+export default function QuestionCard({ question, onAnswer, isEvaluating = false }: QuestionCardProps) {
   const [sliderValue, setSliderValue] = useState(50);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [selectedTrueFalse, setSelectedTrueFalse] = useState<boolean | null>(null);
   const [selectedMultiple, setSelectedMultiple] = useState<number[]>([]);
+  const [textInput, setTextInput] = useState('');
 
   // Handle missing or invalid question
   if (!question) {
@@ -33,6 +35,8 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
       onAnswer(selectedTrueFalse);
     } else if (question.type === 'multiSelect' && selectedMultiple.length > 0) {
       onAnswer(selectedMultiple);
+    } else if (question.type === 'textInput' && textInput.trim()) {
+      onAnswer(textInput.trim());
     }
   };
 
@@ -245,6 +249,57 @@ export default function QuestionCard({ question, onAnswer }: QuestionCardProps) 
         >
           Submit Answer
         </Button>
+      </div>
+    );
+  }
+
+  if (question.type === 'textInput') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-slate-900 mb-4">{question.prompt}</h2>
+          <p className="text-slate-600">Type your answer below</p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-200">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Share your thoughts here..."
+            className="w-full min-h-[120px] p-4 border-2 border-slate-200 rounded-lg resize-none focus:outline-none focus:border-teal-400 transition-colors text-slate-900 placeholder-slate-400"
+            maxLength={500}
+            disabled={isEvaluating}
+          />
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-slate-500 text-sm">
+              💡 Tip: Be specific and explain your reasoning
+            </p>
+            <p className="text-slate-400 text-xs">
+              {textInput.length}/500
+            </p>
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={textInput.trim().length < 10 || isEvaluating}
+          className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isEvaluating ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              AI is evaluating...
+            </div>
+          ) : (
+            'Submit Answer'
+          )}
+        </Button>
+        
+        {textInput.trim().length > 0 && textInput.trim().length < 10 && !isEvaluating && (
+          <p className="text-amber-600 text-sm text-center">
+            Please write at least 10 characters for a meaningful answer
+          </p>
+        )}
       </div>
     );
   }

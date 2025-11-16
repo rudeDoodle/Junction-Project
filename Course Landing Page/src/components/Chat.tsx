@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Send, SkipForward, Edit3 } from 'lucide-react';
+import { Send, SkipForward, Edit3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { generatePersonalizedQuestions } from '../services/gemini';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -11,25 +11,18 @@ interface ChatProps {
   onComplete: () => void;
   userData: any;
   setUserData: (data: any) => void;
-  chatMode: 'type' | 'voice' | null;
+  chatMode: 'type';
 }
 
-// ElevenLabs configuration
-const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'BlAlpGV1KY8jfuqWubtQ';
-
-export default function Chat({ messages, setMessages, onComplete, userData, setUserData, chatMode }: ChatProps) {
+export default function Chat({ messages, setMessages, onComplete, userData, setUserData }: ChatProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [input, setInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [chatQuestions, setChatQuestions] = useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [otherInput, setOtherInput] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -47,9 +40,6 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
           };
           setMessages([firstMessage]);
           setIsLoadingQuestions(false);
-          
-          // Play TTS for the first message
-          playTextToSpeech(questions[0].text);
         }, 500);
       } catch (error) {
         console.error('Failed to generate questions:', error);
@@ -71,9 +61,6 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
         };
         setMessages([firstMessage]);
         setIsLoadingQuestions(false);
-        
-        // Play TTS for the fallback message
-        playTextToSpeech(fallbackQuestions[0].text);
       }
     };
 
@@ -85,88 +72,6 @@ export default function Chat({ messages, setMessages, onComplete, userData, setU
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const playTextToSpeech = async (text: string) => {
-    try {
-      // Stop any currently playing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-
-      setIsPlayingAudio(true);
-
-      // Get ElevenLabs API key
-      let apiKey = ELEVENLABS_API_KEY;
-      if (!apiKey) {
-        if (typeof window !== 'undefined' && (window as any).ELEVEN_LABS_API_KEY) {
-          apiKey = (window as any).ELEVEN_LABS_API_KEY;
-        }
-        if (!apiKey) {
-          apiKey = localStorage.getItem('elevenlabs_api_key') || '';
-        }
-      }
-      
-      if (!apiKey) {
-        console.log('No ElevenLabs API key found, skipping TTS');
-        setIsPlayingAudio(false);
-        return;
-      }
-
-      console.log('Converting text to speech:', text.substring(0, 50) + '...');
-
-      // Use Rachel voice (popular female voice for conversational content)
-      const voiceId = ELEVENLABS_VOICE_ID;
-      
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: 'eleven_monolingual_v1',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('TTS API Error:', errorText);
-        setIsPlayingAudio(false);
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.onerror = () => {
-        console.error('Audio playback error');
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-      console.log('Playing TTS audio');
-
-    } catch (error) {
-      console.error('TTS error:', error);
-      setIsPlayingAudio(false);
-    }
-  };
 
   const validateAnswer = async (answer: string, question: any): Promise<{ isValid: boolean; feedback?: string }> => {
     // Skip validation for choice questions or if answer is too short
@@ -237,9 +142,6 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
       };
       setMessages([...messages, feedbackMessage]);
       
-      // Play TTS for validation feedback
-      playTextToSpeech(feedbackMessage.text);
-      
       setInput('');
       setOtherInput('');
       setShowOtherInput(false);
@@ -277,9 +179,6 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
         };
         setMessages([...newMessages, nextMessage]);
         setCurrentQuestionIndex(currentQuestionIndex + 1);
-        
-        // Play TTS for the next question
-        playTextToSpeech(nextQuestion.text);
       } else {
         const completionMessage = {
           id: newMessages.length + 1,
@@ -289,24 +188,12 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
         };
         setMessages([...newMessages, completionMessage]);
         
-        // Play TTS for the completion message
-        playTextToSpeech(completionMessage.text);
-        
         setTimeout(onComplete, 2000);
       }
     }, 300);
   };
 
-  const handleMicToggle = () => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
-      setTimeout(() => {
-        setIsRecording(false);
-        const mockResponses = ["Somewhat confident", "Once or twice", "Very comfortable", "I'm trying to improve", "A little"];
-        setInput(mockResponses[currentQuestionIndex] || "Sample response");
-      }, 2000);
-    }
-  };
+
 
   const handleSkip = () => {
     setMessages([
@@ -343,14 +230,11 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-md relative">
             <span className="text-xl">🤖</span>
-            {isPlayingAudio && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            )}
           </div>
           <div>
             <h3 className="text-gray-900">Vatra</h3>
             <p className="text-gray-600 text-sm">
-              {isPlayingAudio ? '🔊 Speaking...' : 'AI Finance Guide'}
+              AI Finance Guide
             </p>
           </div>
           <button
@@ -391,7 +275,7 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
 
       {/* Input Area */}
       <div className="bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4 shadow-lg">
-        {chatMode === 'type' && currentQuestion ? (
+        {currentQuestion ? (
           // For text mode, show options if available, otherwise show text input
           currentQuestion.inputType === 'choice' && currentQuestion.options ? (
             <div className="space-y-2">
@@ -458,37 +342,6 @@ Example invalid answers: "asdfgh", "lol no", "your mom", "🤣🤣🤣"`;
               </Button>
             </div>
           )
-        ) : chatMode === 'voice' ? (
-          <div className="flex flex-col items-center gap-3">
-            <motion.button
-              onClick={handleMicToggle}
-              animate={isRecording ? { scale: [1, 1.05, 1] } : {}}
-              transition={{ repeat: isRecording ? Infinity : 0, duration: 1 }}
-              className={`w-16 h-16 rounded-lg flex items-center justify-center ${
-                isRecording
-                  ? 'bg-gradient-to-br from-red-500 to-pink-500'
-                  : 'bg-gradient-to-br from-teal-500 to-cyan-500'
-              } text-white shadow-lg`}
-            >
-              <Mic className="w-7 h-7" />
-            </motion.button>
-            <p className="text-gray-600 text-sm">
-              {isRecording ? 'Listening...' : 'Tap to speak'}
-            </p>
-            {input && (
-              <div className="w-full flex items-center gap-2">
-                <div className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-md text-gray-900">
-                  {input}
-                </div>
-                <Button
-                  onClick={() => handleSend()}
-                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white h-10 w-10 rounded-md p-0 shadow-md"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
         ) : (
           <div className="flex items-center gap-2">
             <input

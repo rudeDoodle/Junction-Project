@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, XCircle, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { Button } from './ui/button';
 import QuestionCard from './QuestionCard';
+import { evaluateTextAnswer } from '../services/gemini';
 
 // ElevenLabs configuration
 const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -13,9 +14,10 @@ interface LessonViewProps {
   facts: string[];
   onComplete: (earnedXP: number, history: any[]) => void;
   onBack: () => void;
+  userData?: any;
 }
 
-export default function LessonView({ questions, facts, onComplete, onBack }: LessonViewProps) {
+export default function LessonView({ questions, facts, onComplete, onBack, userData = {} }: LessonViewProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -24,6 +26,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   const [isShaking, setIsShaking] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   
   const correctSoundRef = useRef<HTMLAudioElement>(null);
   const wrongSoundRef = useRef<HTMLAudioElement>(null);
@@ -40,15 +43,21 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   if (!questions || questions.length === 0) {
     return (
       <div className="h-full bg-gradient-to-b from-white to-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md text-center">
-          <p className="text-slate-700 mb-4">Oops! No questions available for this lesson.</p>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md text-center"
+        >
+          <div className="text-6xl mb-4">😕</div>
+          <h3 className="text-slate-900 mb-2">Oops!</h3>
+          <p className="text-slate-700 mb-6">No questions available for this lesson.</p>
           <Button
             onClick={onBack}
             className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white h-12 rounded-xl"
           >
-            Go Back
+            Go Back to Learn
           </Button>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -57,11 +66,35 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const totalXP = answers.reduce((sum, a) => sum + (a.xpEarned || 0), 0);
 
-  const handleAnswer = (answer: any) => {
+  const handleAnswer = async (answer: any) => {
     let isCorrect = false;
     let xpEarned = 0;
+    let aiFeedback = '';
 
-    if (currentQuestion.type === 'slider') {
+    // Handle text input with AI evaluation
+    if (currentQuestion.type === 'textInput') {
+      setIsEvaluating(true);
+      try {
+        const evaluation = await evaluateTextAnswer(
+          currentQuestion.prompt,
+          answer,
+          currentQuestion.evaluationCriteria || 'Evaluate based on accuracy and completeness',
+          userData
+        );
+        
+        xpEarned = evaluation.xpEarned;
+        aiFeedback = evaluation.feedback;
+        isCorrect = evaluation.score >= 70; // Consider 70+ as "correct"
+      } catch (error) {
+        console.error('AI evaluation failed:', error);
+        // Fallback evaluation
+        xpEarned = 15;
+        aiFeedback = "Thanks for your thoughtful answer! Keep practicing to improve your financial knowledge.";
+        isCorrect = true;
+      } finally {
+        setIsEvaluating(false);
+      }
+    } else if (currentQuestion.type === 'slider') {
       const difference = Math.abs(answer - currentQuestion.answer);
       isCorrect = difference <= 20;
       xpEarned = isCorrect ? 25 : (difference <= 40 ? 15 : 5);
@@ -91,7 +124,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
       }
     }
 
-    setCurrentAnswer({ answer, isCorrect, xpEarned });
+    setCurrentAnswer({ answer, isCorrect, xpEarned, aiFeedback });
     setShowFeedback(true);
     
     // Play sound effect
@@ -129,7 +162,10 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
       let userAnswerText = '';
       let correctAnswerText = '';
       
-      if (q.type === 'slider') {
+      if (q.type === 'textInput') {
+        userAnswerText = ans.answer;
+        correctAnswerText = 'Open-ended (AI evaluated)';
+      } else if (q.type === 'slider') {
         userAnswerText = `${ans.answer}/100`;
         correctAnswerText = `${q.answer}/100`;
       } else if (q.type === 'scam') {
@@ -151,7 +187,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
         correctAnswer: correctAnswerText,
         correct: ans.isCorrect,
         xp: ans.xpEarned,
-        explanation: q.type === 'scam' ? q.explanations[ans.answer] : q.explanation
+        explanation: ans.aiFeedback || (q.type === 'scam' ? q.explanations[ans.answer] : q.explanation)
       };
     }).filter(h => h !== null);
     
@@ -367,6 +403,7 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
               <QuestionCard
                 question={currentQuestion}
                 onAnswer={handleAnswer}
+                isEvaluating={isEvaluating}
               />
             </motion.div>
           ) : (
@@ -406,32 +443,45 @@ export default function LessonView({ questions, facts, onComplete, onBack }: Les
                   </div>
                 </div>
                 
-                {/* Show correct answer */}
-                {!currentAnswer.isCorrect && (
-                  <div className="mb-4 p-3 bg-white/50 rounded-lg border border-orange-300">
-                    <p className="text-sm font-semibold text-orange-900 mb-1">Correct answer:</p>
-                    <p className="text-orange-800">
-                      {currentQuestion.type === 'slider' 
-                        ? `${currentQuestion.answer}/100`
-                        : currentQuestion.type === 'scam'
-                        ? currentQuestion.choices[currentQuestion.correct]
-                        : currentQuestion.type === 'trueFalse'
-                        ? (currentQuestion.correct ? 'True' : 'False')
-                        : currentQuestion.type === 'multiSelect'
-                        ? (Array.isArray(currentQuestion.correct) 
-                            ? currentQuestion.correct.map((i: number) => currentQuestion.choices[i]).join(', ')
-                            : currentQuestion.choices[currentQuestion.correct])
-                        : 'N/A'
-                      }
+                {/* Show AI feedback for text input OR correct answer for other types */}
+                {currentQuestion.type === 'textInput' ? (
+                  <div className="bg-white/50 rounded-lg p-4 border border-purple-300">
+                    <p className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      AI Feedback
                     </p>
+                    <p className="text-purple-800">{currentAnswer.aiFeedback}</p>
                   </div>
+                ) : (
+                  <>
+                    {/* Show correct answer for non-text questions */}
+                    {!currentAnswer.isCorrect && (
+                      <div className="mb-4 p-3 bg-white/50 rounded-lg border border-orange-300">
+                        <p className="text-sm font-semibold text-orange-900 mb-1">Correct answer:</p>
+                        <p className="text-orange-800">
+                          {currentQuestion.type === 'slider' 
+                            ? `${currentQuestion.answer}/100`
+                            : currentQuestion.type === 'scam'
+                            ? currentQuestion.choices[currentQuestion.correct]
+                            : currentQuestion.type === 'trueFalse'
+                            ? (currentQuestion.correct ? 'True' : 'False')
+                            : currentQuestion.type === 'multiSelect'
+                            ? (Array.isArray(currentQuestion.correct) 
+                                ? currentQuestion.correct.map((i: number) => currentQuestion.choices[i]).join(', ')
+                                : currentQuestion.choices[currentQuestion.correct])
+                            : 'N/A'
+                          }
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-slate-700">
+                      {currentQuestion.type === 'scam' 
+                        ? currentQuestion.explanations[currentAnswer.answer]
+                        : currentQuestion.explanation}
+                    </p>
+                  </>
                 )}
-                
-                <p className="text-slate-700">
-                  {currentQuestion.type === 'scam' 
-                    ? currentQuestion.explanations[currentAnswer.answer]
-                    : currentQuestion.explanation}
-                </p>
               </div>
 
               {/* Fun Fact */}

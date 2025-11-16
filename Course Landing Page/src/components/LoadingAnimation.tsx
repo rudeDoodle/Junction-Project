@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 export default function LoadingAnimation() {
   const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("Analyzing your spending patterns...");
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -11,7 +12,20 @@ export default function LoadingAnimation() {
           clearInterval(interval);
           return 100;
         }
-        return prev + 2;
+        const newProgress = prev + 2;
+        
+        // Update status message based on progress
+        if (newProgress < 30) {
+          setStatusMessage("Analyzing your spending patterns...");
+        } else if (newProgress < 60) {
+          setStatusMessage("Crafting personalized questions...");
+        } else if (newProgress < 90) {
+          setStatusMessage("Adding fun facts just for you...");
+        } else {
+          setStatusMessage("Almost ready! 🎉");
+        }
+        
+        return newProgress;
       });
     }, 80);
 
@@ -39,8 +53,8 @@ export default function LoadingAnimation() {
           <div className="w-full h-full border-4 border-gray-200 border-t-teal-500 rounded-md shadow-lg" />
         </motion.div>
 
-        <h2 className="text-gray-900 mb-2">Preparing your personalized questions</h2>
-        <p className="text-gray-600 mb-8">Analyzing your answers and crafting lessons just for you...</p>
+        <h2 className="text-gray-900 mb-2">Creating Your Quiz</h2>
+        <p className="text-gray-600 mb-8">{statusMessage}</p>
 
         {/* Progress bar */}
         <div className="w-full max-w-xs mx-auto">

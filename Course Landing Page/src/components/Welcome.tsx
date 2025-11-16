@@ -19,11 +19,11 @@ export default function Welcome({ onGetStarted }: WelcomeProps) {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="mb-12"
+          className="mb-10"
         >
-          <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
+          <div className="w-26 h-26 mx-auto mb-6 flex items-center justify-center">
             <img 
-              src="/news.png" 
+              src="/vatra.png" 
               alt="Vatra Logo" 
               className="w-full h-full object-contain drop-shadow-2xl"
             />
